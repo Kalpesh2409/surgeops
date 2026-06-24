@@ -1,0 +1,89 @@
+# =========================
+
+# Node.js
+
+# =========================
+
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.log
+
+# Environment Variables
+
+.env
+.env.*
+!.env.example
+
+# =========================
+
+# Python
+
+# =========================
+
+**pycache**/
+*.py[cod]
+*.pyo
+
+.venv/
+venv/
+
+# ML artifacts
+
+*.pkl
+*.joblib
+
+# =========================
+
+# Prisma
+
+# =========================
+
+node_modules/.prisma/
+
+# =========================
+
+# Docker
+
+# =========================
+
+docker/volumes/
+
+# =========================
+
+# IDE
+
+# =========================
+
+.vscode/settings.json
+.idea/
+
+# =========================
+
+# OS Files
+
+# =========================
+
+.DS_Store
+Thumbs.db
+
+# =========================
+
+# Temporary Files
+
+# =========================
+
+tmp/
+temp/
+*.tmp
+
+# =========================
+
+# Logs
+
+# =========================
+
+logs/
+*.log
