@@ -1,0 +1,178 @@
+// SurgeOps — Prisma schema
+// Covers: dark stores, products, inventory, orders, pricing rules, demand events
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Dark Store ────────────────────────────────────────────────────────────────
+model Store {
+  id        String   @id @default(uuid())
+  name      String
+  city      String
+  pincode   String
+  lat       Float
+  lng       Float
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inventory    Inventory[]
+  orders       Order[]
+  pricingRules PricingRule[]
+  demandEvents DemandEvent[]
+
+  @@map("stores")
+}
+
+// ── Category ─────────────────────────────────────────────────────────────────
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  products Product[]
+
+  @@map("categories")
+}
+
+// ── Product ──────────────────────────────────────────────────────────────────
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  name        String
+  description String?
+  basePrice   Float // ₹ — floor price
+  unit        String   @default("piece") // piece | kg | litre
+  weightGrams Int?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  inventory    Inventory[]
+  orderItems   OrderItem[]
+  pricingRules PricingRule[]
+
+  @@map("products")
+}
+
+// ── Inventory ────────────────────────────────────────────────────────────────
+model Inventory {
+  id             String   @id @default(uuid())
+  quantityOnHand Int      @default(0)
+  reorderLevel   Int      @default(10)
+  reorderQty     Int      @default(50)
+  currentPrice   Float // dynamic — updated by ML
+  updatedAt      DateTime @updatedAt
+
+  storeId   String
+  store     Store   @relation(fields: [storeId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([storeId, productId])
+  @@map("inventory")
+}
+
+// ── Order ────────────────────────────────────────────────────────────────────
+model Order {
+  id          String      @id @default(uuid())
+  externalId  String?     @unique // Blinkit / Swiggy order ref
+  status      OrderStatus @default(PENDING)
+  totalAmount Float
+  deliveryFee Float       @default(0)
+  placedAt    DateTime    @default(now())
+  completedAt DateTime?
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  items OrderItem[]
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PICKING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+// ── OrderItem ─────────────────────────────────────────────────────────────────
+model OrderItem {
+  id        String @id @default(uuid())
+  quantity  Int
+  unitPrice Float // price captured at order time
+  subtotal  Float
+
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+// ── PricingRule ───────────────────────────────────────────────────────────────
+// Manual overrides / floor-ceiling guardrails per store × product
+model PricingRule {
+  id                 String   @id @default(uuid())
+  floorPrice         Float
+  ceilPrice          Float
+  surgeMultiplierMax Float    @default(2.0)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  storeId   String
+  store     Store   @relation(fields: [storeId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([storeId, productId])
+  @@map("pricing_rules")
+}
+
+// ── DemandEvent ───────────────────────────────────────────────────────────────
+// Time-series feed consumed by the ML service for demand forecasting
+model DemandEvent {
+  id         String   @id @default(uuid())
+  eventType  String // "order_placed" | "stock_low" | "surge_start" | "surge_end"
+  payload    Json // flexible bag: productId, qty, price, etc.
+  recordedAt DateTime @default(now())
+
+  storeId String
+  store   Store  @relation(fields: [storeId], references: [id])
+
+  @@index([storeId, recordedAt])
+  @@map("demand_events")
+}
+
+// ── PricingSuggestion ─────────────────────────────────────────────────────────
+// Written by ML service; read by API to update Inventory.currentPrice
+model PricingSuggestion {
+  id             String    @id @default(uuid())
+  storeId        String
+  productId      String
+  suggestedPrice Float
+  confidence     Float // 0–1
+  model          String // e.g. "random_forest_v1"
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([storeId, productId, createdAt])
+  @@map("pricing_suggestions")
+}
