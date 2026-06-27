@@ -1,31 +1,33 @@
+/**
+ * app.ts
+ * Express application setup.
+ * Session 4 addition: /simulator routes
+ */
+
 import express from 'express';
 import cors from 'cors';
-import helmet from 'helmet';
-
+import { errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
 import { storesRouter } from './routes/stores';
-import { errorHandler } from './middleware/errorHandler';
+import simulatorRouter from './routes/simulator';
 
 const app = express();
 
-// Middleware
-app.use(helmet());
+// ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/health', healthRouter);
 app.use('/stores', storesRouter);
+app.use('/simulator', simulatorRouter);
 
-// 404 handler
+// ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Not found',
-  });
+  res.status(404).json({ success: false, error: 'Route not found' });
 });
 
-// Global error handler (must be last)
+// ─── Error handler ────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-export { app };
+export default app;
