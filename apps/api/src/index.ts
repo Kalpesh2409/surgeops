@@ -1,11 +1,14 @@
 /**
  * index.ts
- * Entry point — starts Express server and order simulator.
+ * Entry point — starts Express server, order simulator, and pricing engine.
  * Session 4: simulator auto-starts on boot.
+ * Session 5: demand ingestion loop auto-starts on boot.
  */
 
 import app from './app';
 import { startSimulator } from './services/orderSimulator';
+import { startDemandIngestionLoop, stopDemandIngestionLoop } from './services/demandIngestionLoop';
+
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 // Simulator tick interval from env (default 30s)
@@ -24,11 +27,22 @@ const server = app.listen(PORT, () => {
   } else {
     console.log('[SurgeOps] Simulator auto-start disabled (SIMULATOR_AUTO_START=false)');
   }
+
+  // Auto-start pricing engine demand ingestion loop (polls every 15s)
+  const pricingAutoStart = process.env.PRICING_AUTO_START !== 'false';
+  if (pricingAutoStart) {
+    startDemandIngestionLoop();
+  } else {
+    console.log('[SurgeOps] Pricing engine auto-start disabled (PRICING_AUTO_START=false)');
+  }
 });
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 const shutdown = (signal: string) => {
   console.log(`\n[SurgeOps] Received ${signal}. Shutting down gracefully...`);
+
+  stopDemandIngestionLoop();
+
   server.close(() => {
     console.log('[SurgeOps] HTTP server closed.');
     process.exit(0);

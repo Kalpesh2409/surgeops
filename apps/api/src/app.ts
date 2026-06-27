@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { healthRouter } from './routes/health';
 import { storesRouter } from './routes/stores';
 import simulatorRouter from './routes/simulator';
+import pricingRouter from './routes/pricing';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use('/health', healthRouter);
 app.use('/stores', storesRouter);
 app.use('/simulator', simulatorRouter);
+app.use('/pricing', pricingRouter);
 
 // ─── 404 ──────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
