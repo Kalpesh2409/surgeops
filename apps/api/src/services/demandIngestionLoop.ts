@@ -1,182 +1,127 @@
-/**
- * demandIngestionLoop.ts — SurgeOps Session 5
- *
- * Background service that scans for new DemandEvents every 15 seconds.
- * For each unique store×product pair seen in recent events, it:
- *   1. Calls pricingEngine.computeSuggestedPrice()
- *   2. Calls priceUpdateWriter.writePriceUpdate()
- *
- * Tracks a high-water mark (lastProcessedAt) per run to avoid
- * reprocessing old events. No message queue — simple polling loop.
- */
-
 import { PrismaClient } from "@prisma/client";
 import { computeSuggestedPrice } from "./pricingEngine";
-import { writePriceUpdate } from "./priceUpdateWriter";
+import { writePriceUpdates } from "./priceUpdateWriter";
+import { getRedis, CacheKeys } from "../lib/redisClient";
 
 const prisma = new PrismaClient();
 
+let loopTimer: ReturnType<typeof setInterval> | null = null;
+let highWaterMark: Date = new Date(0); // deduplication cursor
+
 const POLL_INTERVAL_MS = 15_000;
 
-// High-water mark — events older than this have already been processed
-let lastProcessedAt: Date = new Date(Date.now() - POLL_INTERVAL_MS);
-
-let loopTimer: NodeJS.Timeout | null = null;
-let isRunning = false;
-let isProcessing = false;
-
-// ── Stats (exposed via /pricing routes) ──────────────────────────────────────
-
-export interface IngestionStats {
-  isRunning: boolean;
-  lastRunAt: Date | null;
-  totalRuns: number;
-  totalEventsProcessed: number;
-  totalPriceUpdates: number;
-  lastError: string | null;
-}
-
-const stats: IngestionStats = {
-  isRunning: false,
-  lastRunAt: null,
-  totalRuns: 0,
-  totalEventsProcessed: 0,
-  totalPriceUpdates: 0,
-  lastError: null,
-};
-
-// ── Core tick ─────────────────────────────────────────────────────────────────
-
 async function tick(): Promise<void> {
-  if (isProcessing) {
-    console.log("[DemandIngestion] Skipping tick — previous run still in progress");
-    return;
-  }
-
-  isProcessing = true;
-  const tickStart = new Date();
-
   try {
-    // Fetch events newer than our high-water mark
+    // --- Fetch new DemandEvents since last high-water mark ---
     const newEvents = await prisma.demandEvent.findMany({
-      where: { recordedAt: { gt: lastProcessedAt } },
+      where: { recordedAt: { gt: highWaterMark } },
       orderBy: { recordedAt: "asc" },
-      select: {
-        storeId: true,
-        payload: true,
-        recordedAt: true,
-      },
     });
-
     if (newEvents.length === 0) {
-      stats.lastRunAt = tickStart;
-      stats.totalRuns++;
+      console.log(
+        "[DemandLoop] No new events since",
+        highWaterMark.toISOString(),
+      );
       return;
     }
 
-    console.log(
-      `[DemandIngestion] ${newEvents.length} new event(s) since ${lastProcessedAt.toISOString()}`
-    );
+    // Advance high-water mark
+    highWaterMark = newEvents[newEvents.length - 1].recordedAt;
 
-    // Deduplicate to unique store×product pairs
-    const pairs = new Map<string, { storeId: string; productId: string }>();
-
-    for (const event of newEvents) {
-      const payload = event.payload as Record<string, unknown>;
-      const productId =
-        typeof payload?.productId === "string" ? payload.productId : null;
-
-      if (!productId) continue;
-
-      const key = `${event.storeId}::${productId}`;
-      if (!pairs.has(key)) {
-        pairs.set(key, { storeId: event.storeId, productId });
-      }
-    }
+    // Deduplicate by store
+    const storeIds = [...new Set(newEvents.map((e) => e.storeId))];
 
     console.log(
-      `[DemandIngestion] Unique store×product pairs to price: ${pairs.size}`
+      `[DemandLoop] Processing ${newEvents.length} events across ${storeIds.length} stores`,
     );
 
-    // Run pricing engine for each pair (sequentially to avoid DB contention)
-    let updatesThisTick = 0;
+    const redis = getRedis();
 
-    for (const [, { storeId, productId }] of pairs) {
-      try {
-        const pricingResult = await computeSuggestedPrice({ storeId, productId });
-        const writeResult = await writePriceUpdate(pricingResult);
+    for (const storeId of storeIds) {
+      const storeEvents = newEvents.filter((e) => e.storeId === storeId);
 
-        if (writeResult.priceChanged) {
-          updatesThisTick++;
-          console.log(
-            `[DemandIngestion] Price updated — store=${storeId.slice(0, 8)} ` +
-              `product=${productId.slice(0, 8)} ` +
-              `₹${writeResult.previousPrice.toFixed(2)} → ₹${writeResult.newPrice.toFixed(2)} ` +
-              `(${pricingResult.surgeMultiplier.toFixed(2)}x, conf=${pricingResult.confidence.toFixed(2)})`
-          );
-        }
-      } catch (err) {
-        // Non-fatal: log and continue with remaining pairs
-        console.warn(
-          `[DemandIngestion] Failed to price storeId=${storeId} productId=${productId}:`,
-          (err as Error).message
-        );
-      }
+      // Compute surge prices for this store
+      const inventoryItems = await prisma.inventory.findMany({
+        where: { storeId },
+        select: { productId: true },
+      });
+
+      const updates = (
+        await Promise.all(
+          inventoryItems.map((inv) =>
+            computeSuggestedPrice({ storeId, productId: inv.productId })
+              .then((result) => ({
+                storeId,
+                productId: inv.productId,
+                currentPrice: result.suggestedPrice,
+                surgeMultiplier: result.surgeMultiplier,
+                confidence: result.confidence,
+              }))
+              .catch(() => null),
+          ),
+        )
+      ).filter((u): u is NonNullable<typeof u> => u !== null);
+      // Write to DB + individual product cache keys
+      await writePriceUpdates(updates);
+
+      // --- Write store-level aggregate cache (TTL 30s) ---
+      // Fetch current inventory prices for this store after updates
+      const inventory = await prisma.inventory.findMany({
+        where: { storeId },
+        include: { product: { select: { id: true, name: true, sku: true } } },
+      });
+
+      const storeAgg = inventory.map((inv) => ({
+        productId: inv.productId,
+        productName: inv.product.name,
+        sku: inv.product.sku,
+        currentPrice: Number(inv.currentPrice),
+        stockQuantity: inv.quantityOnHand,
+        stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
+        updatedAt: inv.updatedAt.toISOString(),
+      }));
+
+      await redis.setex(
+        CacheKeys.storePrice(storeId),
+        30,
+        JSON.stringify(storeAgg),
+      );
+
+      console.log(
+        `[DemandLoop] Store ${storeId}: wrote aggregate cache (${storeAgg.length} products, TTL 30s)`,
+      );
     }
-
-    // Advance high-water mark to the latest event we've seen
-    const latest = newEvents[newEvents.length - 1];
-    lastProcessedAt = latest.recordedAt;
-
-    // Update stats
-    stats.totalEventsProcessed += newEvents.length;
-    stats.totalPriceUpdates += updatesThisTick;
-    stats.lastRunAt = tickStart;
-    stats.totalRuns++;
-    stats.lastError = null;
   } catch (err) {
-    const msg = (err as Error).message;
-    console.error("[DemandIngestion] Tick error:", msg);
-    stats.lastError = msg;
-  } finally {
-    isProcessing = false;
+    console.error("[DemandLoop] Tick error:", err);
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+function deriveStockStatus(
+  quantityOnHand: number,
+  reorderLevel: number,
+): string {
+  if (quantityOnHand === 0) return "OUT_OF_STOCK";
+  if (quantityOnHand <= reorderLevel) return "LOW_STOCK";
+  return "IN_STOCK";
+}
 
 export function startDemandIngestionLoop(): void {
-  if (isRunning) {
-    console.log("[DemandIngestion] Already running");
+  if (loopTimer) {
+    console.warn("[DemandLoop] Already running");
     return;
   }
-
-  isRunning = true;
-  stats.isRunning = true;
   console.log(
-    `[DemandIngestion] Starting — polling every ${POLL_INTERVAL_MS / 1000}s`
+    `[DemandLoop] Starting — polling every ${POLL_INTERVAL_MS / 1000}s`,
   );
-
-  // Run immediately on start, then on interval
-  void tick();
-  loopTimer = setInterval(() => void tick(), POLL_INTERVAL_MS);
+  // Run immediately, then on interval
+  tick();
+  loopTimer = setInterval(tick, POLL_INTERVAL_MS);
 }
 
 export function stopDemandIngestionLoop(): void {
   if (loopTimer) {
     clearInterval(loopTimer);
     loopTimer = null;
+    console.log("[DemandLoop] Stopped");
   }
-  isRunning = false;
-  stats.isRunning = false;
-  console.log("[DemandIngestion] Stopped");
-}
-
-export function getDemandIngestionStats(): IngestionStats {
-  return { ...stats };
-}
-
-/** Force an immediate tick (used by POST /pricing/recalculate) */
-export async function triggerImmediateTick(): Promise<void> {
-  await tick();
 }

@@ -1,203 +1,182 @@
-/**
- * pricing.ts — SurgeOps Session 5
- *
- * Express router: pricing query + control endpoints
- *
- * GET  /pricing/current/:storeId        → current prices for all products in a store
- * GET  /pricing/product/:productId      → pricing history across all stores
- * POST /pricing/recalculate             → trigger immediate ingestion tick
- */
-
 import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
-import { computeSuggestedPrice } from "../services/pricingEngine";
-import { writePriceUpdate } from "../services/priceUpdateWriter";
-import {
-  getDemandIngestionStats,
-  triggerImmediateTick,
-} from "../services/demandIngestionLoop";
+import { getRedis, CacheKeys } from "../lib/redisClient";
+import { startDemandIngestionLoop } from "../services/demandIngestionLoop";
 
 const router = Router();
 const prisma = new PrismaClient();
 
-// ── GET /pricing/current/:storeId ─────────────────────────────────────────────
-
+// ─── GET /pricing/current/:storeId ────────────────────────────────────────────
+// Returns current prices for all products in a store.
+// Cache-first: checks store:{storeId}:prices (TTL 30s) → DB fallback.
 router.get("/current/:storeId", async (req: Request, res: Response) => {
   const { storeId } = req.params;
+  const redis = getRedis();
+  const cacheKey = CacheKeys.storePrice(storeId);
 
   try {
-    // Verify store exists
-    const store = await prisma.store.findUnique({ where: { id: storeId } });
-    if (!store) {
-      return res.status(404).json({ error: "Store not found", storeId });
-    }
-
-    // Fetch all inventory rows for this store
-    const inventoryRows = await prisma.inventory.findMany({
-      where: { storeId },
-      include: {
-        product: {
-          select: { id: true, name: true, sku: true, basePrice: true, unit: true },
-        },
-      },
-      orderBy: { product: { name: "asc" } },
-    });
-
-    // For each product, grab the latest PricingSuggestion
-    const productIds = inventoryRows.map((r) => r.productId);
-
-    const latestSuggestions = await Promise.all(
-      productIds.map((productId) =>
-        prisma.pricingSuggestion.findFirst({
-          where: { storeId, productId },
-          orderBy: { createdAt: "desc" },
-          select: {
-            suggestedPrice: true,
-            confidence: true,
-            model: true,
-            appliedAt: true,
-            createdAt: true,
-          },
-        })
-      )
-    );
-
-    const items = inventoryRows.map((inv, i) => ({
-      productId: inv.productId,
-      sku: inv.product.sku,
-      name: inv.product.name,
-      unit: inv.product.unit,
-      basePrice: inv.product.basePrice,
-      currentPrice: inv.currentPrice,
-      surgeMultiplier:
-        inv.product.basePrice > 0
-          ? parseFloat((inv.currentPrice / inv.product.basePrice).toFixed(4))
-          : 1,
-      quantityOnHand: inv.quantityOnHand,
-      lastSuggestion: latestSuggestions[i] ?? null,
-    }));
-
-    return res.json({
-      storeId,
-      storeName: store.name,
-      city: store.city,
-      totalProducts: items.length,
-      ingestionStats: getDemandIngestionStats(),
-      items,
-    });
-  } catch (err) {
-    console.error("[GET /pricing/current]", err);
-    return res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// ── GET /pricing/product/:productId ──────────────────────────────────────────
-
-router.get("/product/:productId", async (req: Request, res: Response) => {
-  const { productId } = req.params;
-
-  try {
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { category: { select: { name: true, slug: true } } },
-    });
-
-    if (!product) {
-      return res.status(404).json({ error: "Product not found", productId });
-    }
-
-    // Fetch inventory across all stores
-    const inventoryRows = await prisma.inventory.findMany({
-      where: { productId },
-      include: { store: { select: { id: true, name: true, city: true } } },
-    });
-
-    // Most recent 20 suggestions per store
-    const suggestionsByStore = await Promise.all(
-      inventoryRows.map(async (inv) => {
-        const suggestions = await prisma.pricingSuggestion.findMany({
-          where: { storeId: inv.storeId, productId },
-          orderBy: { createdAt: "desc" },
-          take: 20,
-          select: {
-            suggestedPrice: true,
-            confidence: true,
-            model: true,
-            appliedAt: true,
-            createdAt: true,
-          },
-        });
-        return { storeId: inv.storeId, suggestions };
-      })
-    );
-
-    const suggestionMap = new Map(
-      suggestionsByStore.map((s) => [s.storeId, s.suggestions])
-    );
-
-    const stores = inventoryRows.map((inv) => ({
-      storeId: inv.storeId,
-      storeName: inv.store.name,
-      city: inv.store.city,
-      currentPrice: inv.currentPrice,
-      surgeMultiplier:
-        product.basePrice > 0
-          ? parseFloat((inv.currentPrice / product.basePrice).toFixed(4))
-          : 1,
-      quantityOnHand: inv.quantityOnHand,
-      recentSuggestions: suggestionMap.get(inv.storeId) ?? [],
-    }));
-
-    return res.json({
-      productId,
-      sku: product.sku,
-      name: product.name,
-      basePrice: product.basePrice,
-      unit: product.unit,
-      category: product.category,
-      stores,
-    });
-  } catch (err) {
-    console.error("[GET /pricing/product]", err);
-    return res.status(500).json({ error: (err as Error).message });
-  }
-});
-
-// ── POST /pricing/recalculate ─────────────────────────────────────────────────
-
-router.post("/recalculate", async (req: Request, res: Response) => {
-  /**
-   * Optional body: { storeId, productId }
-   * If provided → recalculate that specific pair immediately.
-   * If omitted   → trigger a full ingestion tick right now.
-   */
-  const { storeId, productId } = req.body ?? {};
-
-  try {
-    if (storeId && productId) {
-      // Single-pair recalculation
-      const pricingResult = await computeSuggestedPrice({ storeId, productId });
-      const writeResult = await writePriceUpdate(pricingResult);
-
+    // --- Cache check ---
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      console.log(`[Pricing] CACHE HIT  store=${storeId} key=${cacheKey}`);
       return res.json({
-        mode: "single",
-        ...pricingResult,
-        write: writeResult,
+        source: "cache",
+        storeId,
+        prices: JSON.parse(cached),
       });
     }
 
-    // Full tick
-    await triggerImmediateTick();
+    console.log(`[Pricing] CACHE MISS store=${storeId} key=${cacheKey} → DB`);
 
-    return res.json({
-      mode: "full_tick",
-      message: "Demand ingestion tick triggered",
-      stats: getDemandIngestionStats(),
+    // --- DB fallback ---
+    const inventory = await prisma.inventory.findMany({
+      where: { storeId },
+      include: {
+        product: { select: { id: true, name: true, sku: true } },
+      },
     });
+
+    if (inventory.length === 0) {
+      return res.status(404).json({ error: "Store not found or no inventory" });
+    }
+
+    const prices = inventory.map((inv) => ({
+      productId: inv.productId,
+      productName: inv.product.name,
+      sku: inv.product.sku,
+      currentPrice: Number(inv.currentPrice),
+      stockQuantity: inv.quantityOnHand,
+      stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
+      updatedAt: inv.updatedAt.toISOString(),
+    }));
+
+    // Warm the cache after DB fallback
+    await redis.setex(cacheKey, 30, JSON.stringify(prices));
+    console.log(`[Pricing] Warmed cache for store=${storeId}`);
+
+    return res.json({ source: "db", storeId, prices });
   } catch (err) {
-    console.error("[POST /pricing/recalculate]", err);
-    return res.status(500).json({ error: (err as Error).message });
+    console.error("[Pricing] /current error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// ─── GET /pricing/product/:productId ──────────────────────────────────────────
+// Returns prices for a specific product across all stores.
+// Cache-first: checks price:{storeId}:{productId} per store → DB fallback.
+router.get("/product/:productId", async (req: Request, res: Response) => {
+  const { productId } = req.params;
+  const redis = getRedis();
+
+  try {
+    // Find all stores that carry this product
+    const inventoryRows = await prisma.inventory.findMany({
+      where: { productId },
+      include: {
+        store: { select: { id: true, name: true, city: true } },
+        product: { select: { id: true, name: true, sku: true } },
+      },
+    });
+
+    if (inventoryRows.length === 0) {
+      return res.status(404).json({ error: "Product not found in any store" });
+    }
+
+    const results = await Promise.all(
+      inventoryRows.map(async (inv) => {
+        const cacheKey = CacheKeys.productPrice(inv.storeId, productId);
+        const cached = await redis.get(cacheKey);
+
+        if (cached) {
+          console.log(
+            `[Pricing] CACHE HIT  product=${productId} store=${inv.storeId}`,
+          );
+          const parsed = JSON.parse(cached);
+          return {
+            storeId: inv.storeId,
+            storeName: inv.store.name,
+            city: inv.store.city,
+            source: "cache",
+            ...parsed,
+          };
+        }
+
+        console.log(
+          `[Pricing] CACHE MISS product=${productId} store=${inv.storeId} → DB`,
+        );
+        return {
+          storeId: inv.storeId,
+          storeName: inv.store.name,
+          city: inv.store.city,
+          productId: inv.productId,
+          productName: inv.product.name,
+          sku: inv.product.sku,
+          currentPrice: Number(inv.currentPrice),
+          stockQuantity: inv.quantityOnHand,
+          stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
+          updatedAt: inv.updatedAt.toISOString(),
+          source: "db",
+        };
+      }),
+    );
+
+    return res.json({ productId, stores: results });
+  } catch (err) {
+    console.error("[Pricing] /product error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── POST /pricing/recalculate ─────────────────────────────────────────────────
+// Invalidates cache for the store, then triggers a fresh ingestion tick.
+router.post("/recalculate", async (req: Request, res: Response) => {
+  const { storeId } = req.body as { storeId?: string };
+
+  if (!storeId) {
+    return res.status(400).json({ error: "storeId is required" });
+  }
+
+  const redis = getRedis();
+
+  try {
+    // --- Cache invalidation ---
+    // Delete store-level aggregate
+    const storeKey = CacheKeys.storePrice(storeId);
+    await redis.del(storeKey);
+    console.log(`[Pricing] Invalidated cache key: ${storeKey}`);
+
+    // Delete all product-level keys for this store
+    const productKeys = await redis.keys(`price:${storeId}:*`);
+    if (productKeys.length > 0) {
+      await redis.del(...productKeys);
+      console.log(
+        `[Pricing] Invalidated ${productKeys.length} product cache keys for store=${storeId}`,
+      );
+    }
+
+    // --- Restart ingestion loop to trigger a fresh tick ---
+    // The loop will pick up any recent DemandEvents and reprice
+    startDemandIngestionLoop();
+
+    return res.json({
+      message: "Cache invalidated and repricing triggered",
+      storeId,
+      keysInvalidated: 1 + productKeys.length,
+    });
+  } catch (err) {
+    console.error("[Pricing] /recalculate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function deriveStockStatus(
+  quantityOnHand: number,
+  reorderLevel: number,
+): string {
+  if (quantityOnHand === 0) return "OUT_OF_STOCK";
+  if (quantityOnHand <= reorderLevel) return "LOW_STOCK";
+  return "IN_STOCK";
+}
 
 export default router;

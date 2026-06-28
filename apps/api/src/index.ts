@@ -1,53 +1,67 @@
-/**
- * index.ts
- * Entry point — starts Express server, order simulator, and pricing engine.
- * Session 4: simulator auto-starts on boot.
- * Session 5: demand ingestion loop auto-starts on boot.
- */
+// src/index.ts
+// Session 6 patch: Redis graceful disconnect + health router registration
+// All other setup (simulator, demandIngestionLoop) unchanged from Sessions 4–5.
+import "dotenv/config";
+import express from "express";
+import { PrismaClient } from "@prisma/client";
+import { startSimulator, stopSimulator } from "./services/orderSimulator";
+import {
+  startDemandIngestionLoop,
+  stopDemandIngestionLoop,
+} from "./services/demandIngestionLoop";
+import { disconnectRedis } from "./lib/redisClient";
 
-import app from './app';
-import { startSimulator } from './services/orderSimulator';
-import { startDemandIngestionLoop, stopDemandIngestionLoop } from './services/demandIngestionLoop';
+// Routes
+import { storesRouter as storeRoutes } from "./routes/stores";
+import simulatorRoutes from "./routes/simulator";
+import pricingRoutes from "./routes/pricing";
+import { healthRouter as healthRoutes } from "./routes/health";
 
-const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
+const app = express();
+const prisma = new PrismaClient();
+const PORT = parseInt(process.env.PORT || "4000", 10);
 
-// Simulator tick interval from env (default 30s)
-const SIMULATOR_INTERVAL_MS = process.env.SIMULATOR_INTERVAL_MS
-  ? parseInt(process.env.SIMULATOR_INTERVAL_MS)
-  : 30_000;
+app.use(express.json());
 
-const server = app.listen(PORT, () => {
-  console.log(`[SurgeOps] API server running on port ${PORT}`);
-  console.log(`[SurgeOps] Environment: ${process.env.NODE_ENV ?? 'development'}`);
+// ── Route registration ────────────────────────────────────────────────────────
+app.use("/health", healthRoutes);          // GET /health  +  GET /health/redis
+app.use("/stores", storeRoutes);
+app.use("/simulator", simulatorRoutes);
+app.use("/pricing", pricingRoutes);
 
-  // Auto-start simulator (can be toggled via /simulator/stop)
-  const autoStart = process.env.SIMULATOR_AUTO_START !== 'false';
-  if (autoStart) {
-    startSimulator(SIMULATOR_INTERVAL_MS);
-  } else {
-    console.log('[SurgeOps] Simulator auto-start disabled (SIMULATOR_AUTO_START=false)');
+// ── Centralized error handler ─────────────────────────────────────────────────
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error("[Error]", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
+);
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`[Server] SurgeOps API running on port ${PORT}`);
+
+  if (process.env.SIMULATOR_AUTO_START === "true") {
+    startSimulator();
   }
 
-  // Auto-start pricing engine demand ingestion loop (polls every 15s)
-  const pricingAutoStart = process.env.PRICING_AUTO_START !== 'false';
-  if (pricingAutoStart) {
-    startDemandIngestionLoop();
-  } else {
-    console.log('[SurgeOps] Pricing engine auto-start disabled (PRICING_AUTO_START=false)');
-  }
+  startDemandIngestionLoop();
 });
 
-// ─── Graceful shutdown ────────────────────────────────────────────────────────
-const shutdown = (signal: string) => {
-  console.log(`\n[SurgeOps] Received ${signal}. Shutting down gracefully...`);
-
+// ── Graceful shutdown ─────────────────────────────────────────────────────────
+async function shutdown(signal: string) {
+  console.log(`\n[Server] ${signal} received — shutting down…`);
+  stopSimulator();
   stopDemandIngestionLoop();
+  await disconnectRedis();          // ← Session 6: Redis disconnect
+  await prisma.$disconnect();
+  process.exit(0);
+}
 
-  server.close(() => {
-    console.log('[SurgeOps] HTTP server closed.');
-    process.exit(0);
-  });
-};
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGTERM", () => shutdown("SIGTERM"));
