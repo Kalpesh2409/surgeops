@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { getRedis, CacheKeys } from "../lib/redisClient";
+import { broadcast } from "../lib/sseManager";
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,8 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
   const redis = getRedis();
 
   for (const update of updates) {
-    const { storeId, productId, currentPrice, surgeMultiplier, confidence } = update;
+    const { storeId, productId, currentPrice, surgeMultiplier, confidence } =
+      update;
 
     const existing = await prisma.inventory.findFirst({
       where: { storeId, productId },
@@ -27,7 +29,9 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
     });
 
     if (!existing) {
-      console.warn(`[PriceWriter] No inventory row for store=${storeId} product=${productId}`);
+      console.warn(
+        `[PriceWriter] No inventory row for store=${storeId} product=${productId}`,
+      );
       continue;
     }
 
@@ -44,7 +48,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
           confidence,
           updatedAt: new Date().toISOString(),
           source: "epsilon-skip",
-        })
+        }),
       );
       continue;
     }
@@ -78,12 +82,21 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
     const result = await redis.setex(
       CacheKeys.productPrice(storeId, productId),
       60,
-      JSON.stringify(cachePayload)
+      JSON.stringify(cachePayload),
     );
 
     console.log(
       `[PriceWriter] Updated price for store=${storeId} product=${productId} ` +
-      `price=₹${currentPrice} multiplier=${surgeMultiplier.toFixed(2)} [DB+Cache] setex=${result}`
+        `price=₹${currentPrice} multiplier=${surgeMultiplier.toFixed(2)} [DB+Cache] setex=${result}`,
     );
+
+    // ── SSE broadcast ──────────────────────────────────────────────────────
+    broadcast(storeId, {
+      productId,
+      currentPrice,
+      surgeMultiplier,
+      confidence,
+      updatedAt: new Date().toISOString(),
+    });
   }
 }

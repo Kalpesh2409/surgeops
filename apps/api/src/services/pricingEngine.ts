@@ -41,6 +41,7 @@ const EVENT_WEIGHTS: Record<string, number> = {
   surge_start: 2.5,
   stock_low: 1.8,
   surge_end: -1.5,
+  SURGE_INJECT: 3.0,
 };
 
 /** Demand score → multiplier curve breakpoints */
@@ -61,7 +62,11 @@ const SURGE_THRESHOLDS = [
  * Events closer in time get a time-decay weight (half-life = 15 min).
  */
 function computeDemandScore(
-  events: Array<{ eventType: string; recordedAt: Date; payload: Prisma.JsonValue }>
+  events: Array<{
+    eventType: string;
+    recordedAt: Date;
+    payload: Prisma.JsonValue;
+  }>,
 ): number {
   const now = Date.now();
   const halfLifeMs = 15 * 60 * 1000;
@@ -74,7 +79,9 @@ function computeDemandScore(
     // Extra boost if payload carries an explicit magnitude
     const payload = event.payload as Record<string, unknown>;
     const magnitude =
-      typeof payload?.magnitude === "number" ? (payload.magnitude as number) : 1.0;
+      typeof payload?.magnitude === "number"
+        ? (payload.magnitude as number)
+        : 1.0;
 
     return score + baseWeight * decayFactor * magnitude;
   }, 0);
@@ -95,21 +102,20 @@ function scoreToMultiplier(score: number): number {
 /**
  * Derive a 0–1 confidence value from how many events and their freshness.
  */
-function computeConfidence(
-  eventCount: number,
-  demandScore: number
-): number {
+function computeConfidence(eventCount: number, demandScore: number): number {
   // More events + higher score = more confident
   const eventFactor = Math.min(eventCount / 10, 1.0); // saturates at 10 events
   const scoreFactor = Math.min(demandScore / 20, 1.0); // saturates at score 20
-  return parseFloat(((eventFactor * 0.5 + scoreFactor * 0.5) * 0.95 + 0.05).toFixed(4));
+  return parseFloat(
+    ((eventFactor * 0.5 + scoreFactor * 0.5) * 0.95 + 0.05).toFixed(4),
+  );
 }
 
 /**
  * Main pricing engine entry point.
  */
 export async function computeSuggestedPrice(
-  input: PricingInput
+  input: PricingInput,
 ): Promise<PricingResult> {
   const { storeId, productId } = input;
 
@@ -121,7 +127,7 @@ export async function computeSuggestedPrice(
 
   if (!inventory) {
     throw new Error(
-      `Inventory not found for storeId=${storeId} productId=${productId}`
+      `Inventory not found for storeId=${storeId} productId=${productId}`,
     );
   }
 
@@ -161,7 +167,10 @@ export async function computeSuggestedPrice(
     const cappedMultiplier = Math.min(rawMultiplier, rule.surgeMultiplierMax);
     const unclamped = parseFloat((basePrice * cappedMultiplier).toFixed(2));
     // Clamp to [floorPrice, ceilPrice]
-    suggestedPrice = Math.max(rule.floorPrice, Math.min(rule.ceilPrice, unclamped));
+    suggestedPrice = Math.max(
+      rule.floorPrice,
+      Math.min(rule.ceilPrice, unclamped),
+    );
     rawMultiplier = cappedMultiplier;
     reasoning = `demandScore=${demandScore.toFixed(2)}, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`;
   } else {

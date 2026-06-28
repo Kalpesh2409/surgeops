@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import {
   startSimulator,
   stopSimulator,
@@ -28,7 +28,7 @@ router.post("/stop", (_req: Request, res: Response) => {
 });
 
 // POST /simulator/inject
-// Body: { storeId: string, categoryId?: string, multiplier?: number }
+// Body: { storeId: string, productId?: string, categoryId?: string, multiplier?: number, factor?: number }
 // Injects a synthetic surge DemandEvent, then invalidates that store's cache.
 router.post("/inject", async (req: Request, res: Response) => {
   console.log("[Inject] req.body =", req.body);
@@ -36,12 +36,16 @@ router.post("/inject", async (req: Request, res: Response) => {
 
   const {
     storeId,
+    productId,
     categoryId,
     multiplier = 2.5,
+    factor,
   } = req.body as {
     storeId: string;
+    productId?: string;
     categoryId?: string;
     multiplier?: number;
+    factor?: number;
   };
 
   if (!storeId) {
@@ -55,12 +59,20 @@ router.post("/inject", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Store not found" });
     }
 
+    // Build payload — include productId so pricingEngine can match events
+    const payload: Record<string, unknown> = {
+      injected: true,
+      multiplier: factor ?? multiplier,
+    };
+    if (productId) payload.productId = productId;
+    if (categoryId) payload.categoryId = categoryId;
+
     // Create synthetic DemandEvent
     const event = await prisma.demandEvent.create({
       data: {
         storeId,
         eventType: "SURGE_INJECT",
-        payload: { injected: true, multiplier },
+        payload: payload as Prisma.InputJsonValue,
       },
     });
 

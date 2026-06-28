@@ -16,6 +16,7 @@ import { storesRouter as storeRoutes } from "./routes/stores";
 import simulatorRoutes from "./routes/simulator";
 import pricingRoutes from "./routes/pricing";
 import { healthRouter as healthRoutes } from "./routes/health";
+import streamRoutes from "./routes/stream";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -24,22 +25,22 @@ const PORT = parseInt(process.env.PORT || "4000", 10);
 app.use(express.json());
 
 // ── Route registration ────────────────────────────────────────────────────────
-app.use("/health", healthRoutes);          // GET /health  +  GET /health/redis
+app.use("/health", healthRoutes); // GET /health  +  GET /health/redis
 app.use("/stores", storeRoutes);
 app.use("/simulator", simulatorRoutes);
 app.use("/pricing", pricingRoutes);
-
+app.use("/stream", streamRoutes);
 // ── Centralized error handler ─────────────────────────────────────────────────
 app.use(
   (
     err: Error,
     _req: express.Request,
     res: express.Response,
-    _next: express.NextFunction
+    _next: express.NextFunction,
   ) => {
     console.error("[Error]", err);
     res.status(500).json({ error: err.message || "Internal server error" });
-  }
+  },
 );
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
@@ -58,7 +59,7 @@ async function shutdown(signal: string) {
   console.log(`\n[Server] ${signal} received — shutting down…`);
   stopSimulator();
   stopDemandIngestionLoop();
-  await disconnectRedis();          // ← Session 6: Redis disconnect
+  await disconnectRedis(); // ← Session 6: Redis disconnect
   await prisma.$disconnect();
   process.exit(0);
 }
