@@ -1,6 +1,7 @@
 // src/index.ts
 // Session 6 patch: Redis graceful disconnect + health router registration
 // All other setup (simulator, demandIngestionLoop) unchanged from Sessions 4–5.
+import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { PrismaClient } from "@prisma/client";
@@ -22,6 +23,7 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || "4000", 10);
 
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 
 // ── Route registration ────────────────────────────────────────────────────────
