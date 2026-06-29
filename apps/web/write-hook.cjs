@@ -1,0 +1,1 @@
+const fs = require('fs'); fs.writeFileSync('src/hooks/usePriceStream.ts', fs.readFileSync('write-hook-content.txt', 'utf8'))
