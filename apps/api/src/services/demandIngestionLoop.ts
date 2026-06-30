@@ -68,18 +68,45 @@ async function tick(): Promise<void> {
       // Fetch current inventory prices for this store after updates
       const inventory = await prisma.inventory.findMany({
         where: { storeId },
-        include: { product: { select: { id: true, name: true, sku: true } } },
+        include: {
+          product: {
+            select: { id: true, name: true, sku: true, basePrice: true },
+          },
+        },
       });
 
-      const storeAgg = inventory.map((inv) => ({
-        productId: inv.productId,
-        productName: inv.product.name,
-        sku: inv.product.sku,
-        currentPrice: Number(inv.currentPrice),
-        stockQuantity: inv.quantityOnHand,
-        stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
-        updatedAt: inv.updatedAt.toISOString(),
-      }));
+      // Latest confidence per product, from the most recent PricingSuggestion row
+      const latestSuggestions = await prisma.pricingSuggestion.findMany({
+        where: { storeId },
+        orderBy: { createdAt: "desc" },
+        distinct: ["productId"],
+        select: { productId: true, confidence: true },
+      });
+      const confidenceByProduct = new Map(
+        latestSuggestions.map((s) => [s.productId, s.confidence]),
+      );
+
+      const storeAgg = inventory.map((inv) => {
+        const basePrice = inv.product.basePrice;
+        const currentPrice = Number(inv.currentPrice);
+        const surgeMultiplier =
+          basePrice > 0
+            ? parseFloat((currentPrice / basePrice).toFixed(4))
+            : 1.0;
+
+        return {
+          productId: inv.productId,
+          productName: inv.product.name,
+          sku: inv.product.sku,
+          basePrice,
+          currentPrice,
+          surgeMultiplier,
+          confidence: confidenceByProduct.get(inv.productId) ?? 0,
+          stockQuantity: inv.quantityOnHand,
+          stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
+          updatedAt: inv.updatedAt.toISOString(),
+        };
+      });
 
       await redis.setex(
         CacheKeys.storePrice(storeId),

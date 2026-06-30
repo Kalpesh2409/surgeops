@@ -16,7 +16,6 @@ const EPSILON = 0.01;
 
 export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
   if (updates.length === 0) return;
-
   const redis = getRedis();
 
   for (const update of updates) {
@@ -25,7 +24,11 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
 
     const existing = await prisma.inventory.findFirst({
       where: { storeId, productId },
-      select: { id: true, currentPrice: true },
+      select: {
+        id: true,
+        currentPrice: true,
+        product: { select: { name: true, sku: true, basePrice: true } },
+      },
     });
 
     if (!existing) {
@@ -35,8 +38,9 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       continue;
     }
 
-    const delta = Math.abs(currentPrice - Number(existing.currentPrice));
+    const { name: productName, sku, basePrice } = existing.product;
 
+    const delta = Math.abs(currentPrice - Number(existing.currentPrice));
     if (delta < EPSILON) {
       // Price change too small — still refresh cache TTL
       await redis.setex(
@@ -46,6 +50,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
           currentPrice: Number(existing.currentPrice),
           surgeMultiplier,
           confidence,
+          basePrice,
           updatedAt: new Date().toISOString(),
           source: "epsilon-skip",
         }),
@@ -76,9 +81,9 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       currentPrice,
       surgeMultiplier,
       confidence,
+      basePrice,
       updatedAt: new Date().toISOString(),
     };
-
     const result = await redis.setex(
       CacheKeys.productPrice(storeId, productId),
       60,
@@ -90,9 +95,12 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
         `price=₹${currentPrice} multiplier=${surgeMultiplier.toFixed(2)} [DB+Cache] setex=${result}`,
     );
 
-    // ── SSE broadcast ──────────────────────────────────────────────────────
+    // ── SSE broadcast ──────────────────────────────────────────────────
     broadcast(storeId, {
       productId,
+      productName,
+      sku,
+      basePrice,
       currentPrice,
       surgeMultiplier,
       confidence,
