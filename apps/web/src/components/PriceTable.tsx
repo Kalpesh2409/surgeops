@@ -79,12 +79,17 @@ export function PriceTable({ prices }: PriceTableProps) {
             <TableCell>₹{entry.surgePrice.toFixed(2)}</TableCell>
             <TableCell>{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
             <TableCell className="text-muted-foreground text-sm">{getReason(entry.surgeMultiplier)}</TableCell>
-            <TableCell>
-              <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
-                <div
-                  className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
-                  style={{ width: `${Math.round(entry.confidence * 100)}%` }}
-                />
+           <TableCell>
+              <div className="flex items-center gap-2">
+                <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
+                  <div
+                    className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
+                    style={{ width: `${Math.max(4, Math.round(entry.confidence * 100))}%` }}
+                  />
+                </div>
+                <span className="text-xs text-muted-foreground w-8">
+                  {Math.round(entry.confidence * 100)}%
+                </span>
               </div>
             </TableCell>
             <TableCell className="text-muted-foreground text-xs">
