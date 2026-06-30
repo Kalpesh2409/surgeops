@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+
 export interface PriceEntry {
   productId: string;
   productName: string;
@@ -11,18 +12,27 @@ export interface PriceEntry {
   updatedAt: string;
 }
 
+export interface PriceEvent {
+  id: string;
+  productName: string;
+  surgeMultiplier: number;
+  timestamp: string;
+}
+
 interface UsePriceStreamResult {
   prices: Record<string, PriceEntry>;
   status: "connecting" | "connected" | "disconnected";
   lastUpdated: string | null;
+  events: PriceEvent[];
 }
 
 export function usePriceStream(storeId: string): UsePriceStreamResult {
   const [prices, setPrices] = useState<Record<string, PriceEntry>>({});
-  const [status, setStatus] = useState<
+const [status, setStatus] = useState<
     "connecting" | "connected" | "disconnected"
   >("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [events, setEvents] = useState<PriceEvent[]>([]);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -30,6 +40,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
 
     setStatus("connecting");
     setPrices({});
+    setEvents([]);
 
     // Initial load — fetch current prices immediately on mount
     fetch(`http://localhost:4000/pricing/current/${storeId}`)
@@ -42,7 +53,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
             productId: p.productId,
             productName: (p as any).productName ?? p.productId,
             sku: (p as any).sku ?? p.productId,
-            basePrice: (p as any).currentPrice,
+            basePrice: (p as any).basePrice ?? (p as any).currentPrice,
             surgePrice: (p as any).currentPrice,
             surgeMultiplier: (p as any).surgeMultiplier ?? 1.0,
             confidence: (p as any).confidence ?? 0,
@@ -76,6 +87,15 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
       };
       setLastUpdated(new Date().toISOString());
       setPrices((prev) => ({ ...prev, [data.productId]: data }));
+      setEvents((prev) => {
+        const next: PriceEvent = {
+          id: `${data.productId}-${data.updatedAt}`,
+          productName: data.productName,
+          surgeMultiplier: data.surgeMultiplier,
+          timestamp: data.updatedAt,
+        };
+        return [next, ...prev].slice(0, 5);
+      });
     });
 
     es.onerror = () => {
@@ -89,5 +109,5 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
     };
   }, [storeId]);
 
-  return { prices, status, lastUpdated };
+  return { prices, status, lastUpdated, events };
 }
