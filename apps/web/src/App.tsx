@@ -5,6 +5,7 @@ import { usePriceStream } from "@/hooks/usePriceStream";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SystemStatus } from "@/components/SystemStatus";
 import { RecentEvents } from "@/components/RecentEvents";
+import { InventoryPanel } from "@/components/InventoryPanel";
 
 export default function App() {
   const [storeId, setStoreId] = useState("store-mumbai-bandra");
@@ -84,8 +85,13 @@ export default function App() {
 
         {/* Bottom panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <SystemStatus />
-          <RecentEvents events={events} />
+          <div className="space-y-6">
+            <InventoryPanel storeId={storeId} />
+            <SystemStatus />
+          </div>
+          <div className="space-y-6">
+            <RecentEvents events={events} />
+          </div>
         </div>
       </div>
     </div>

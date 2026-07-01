@@ -18,6 +18,7 @@ import simulatorRoutes from "./routes/simulator";
 import pricingRoutes from "./routes/pricing";
 import { healthRouter as healthRoutes } from "./routes/health";
 import streamRoutes from "./routes/stream";
+import inventoryRoutes from "./routes/inventory";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -32,6 +33,7 @@ app.use("/stores", storeRoutes);
 app.use("/simulator", simulatorRoutes);
 app.use("/pricing", pricingRoutes);
 app.use("/stream", streamRoutes);
+app.use("/inventory", inventoryRoutes);
 // ── Centralized error handler ─────────────────────────────────────────────────
 app.use(
   (
