@@ -10,7 +10,7 @@ import { TrafficSimulator } from "@/components/TrafficSimulator";
 
 export default function App() {
   const [storeId, setStoreId] = useState("store-mumbai-bandra");
-  const { prices, status, lastUpdated, events } = usePriceStream(storeId);
+  const { prices, inventory, status, lastUpdated, events } = usePriceStream(storeId);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
+      <div className="w-full space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -87,7 +87,7 @@ export default function App() {
         {/* Bottom panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
-            <InventoryPanel storeId={storeId} />
+            <InventoryPanel inventory={inventory} />
             <SystemStatus />
           </div>
           <div className="space-y-6">

@@ -1,23 +1,6 @@
-import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-type InventoryItem = {
-  productId: string;
-  name: string;
-  sku: string;
-  quantityOnHand: number;
-  reorderLevel: number;
-  reorderQty: number;
-  status: "HEALTHY" | "LOW_STOCK" | "CRITICAL";
-  levelPercent: number;
-};
-
-type InventoryResponse = {
-  storeId: string;
-  count: number;
-  inventory: InventoryItem[];
-};
+import type { InventoryItem } from "@/hooks/usePriceStream";
 
 const STATUS_STYLES: Record<InventoryItem["status"], string> = {
   HEALTHY: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -37,56 +20,27 @@ const BAR_COLOR: Record<InventoryItem["status"], string> = {
   CRITICAL: "bg-red-500",
 };
 
-export function InventoryPanel({ storeId }: { storeId: string }) {
-  const [data, setData] = useState<InventoryResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    fetch(`http://localhost:4000/inventory/${storeId}`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((json: InventoryResponse) => {
-        if (!cancelled) setData(json);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err.message || "Failed to load inventory");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [storeId]);
+export function InventoryPanel({
+  inventory,
+}: {
+  inventory: Record<string, InventoryItem>;
+}) {
+  const items = Object.values(inventory).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-base font-semibold">
-          Live Inventory
-        </CardTitle>
-        {data && (
-          <span className="text-xs text-muted-foreground">
-            {data.count} SKUs
-          </span>
+        <CardTitle className="text-base font-semibold">Live Inventory</CardTitle>
+        {items.length > 0 && (
+          <span className="text-xs text-muted-foreground">{items.length} SKUs</span>
         )}
       </CardHeader>
       <CardContent>
-        {loading && (
+        {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading inventory…</p>
-        )}
-        {error && (
-          <p className="text-sm text-red-400">Error: {error}</p>
-        )}
-        {!loading && !error && data && (
+        ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted-foreground border-b border-border">
@@ -97,7 +51,7 @@ export function InventoryPanel({ storeId }: { storeId: string }) {
               </tr>
             </thead>
             <tbody>
-              {data.inventory.map((item) => (
+              {items.map((item) => (
                 <tr key={item.productId} className="border-b border-border/50 last:border-0">
                   <td className="py-2 font-medium">{item.name}</td>
                   <td className="py-2 text-muted-foreground">{item.quantityOnHand}</td>

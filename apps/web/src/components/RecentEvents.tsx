@@ -24,7 +24,17 @@ export function RecentEvents({ events }: RecentEventsProps) {
               return (
                 <li key={event.id} className="text-sm text-muted-foreground">
                   <span className="text-foreground font-medium">{time}</span>{' '}
-                  {event.productName} multiplier raised to {event.surgeMultiplier.toFixed(2)}x
+                  {event.type === 'price' ? (
+                    <>
+                      {event.productName} multiplier raised to{' '}
+                      {event.surgeMultiplier?.toFixed(2)}x
+                    </>
+                  ) : (
+                    <>
+                      {event.unitsOrdered} units ordered — {event.productName} (
+                      {event.quantityBefore} → {event.quantityAfter})
+                    </>
+                  )}
                 </li>
               );
             })}

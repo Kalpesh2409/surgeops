@@ -8,6 +8,8 @@ import {
   getSimulatorStatus,
 } from "../services/orderSimulator";
 import { getRedis, CacheKeys } from "../lib/redisClient";
+import { broadcast } from "../lib/sseManager";
+import { computeInventoryStatus, computeLevelPercent } from "../lib/inventoryStatus";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -30,8 +32,6 @@ router.post("/stop", (_req: Request, res: Response) => {
 });
 
 // POST /simulator/inject
-// Body: { storeId: string, productId?: string, categoryId?: string, multiplier?: number, factor?: number }
-// Injects a synthetic surge DemandEvent, then invalidates that store's cache.
 router.post("/inject", async (req: Request, res: Response) => {
   console.log("[Inject] req.body =", req.body);
   console.log("[Inject] content-type =", req.headers["content-type"]);
@@ -52,20 +52,19 @@ router.post("/inject", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "storeId is required" });
   }
   try {
-    // Verify store exists
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
       return res.status(404).json({ error: "Store not found" });
     }
-    // Build payload — include productId so pricingEngine can match events
-   const payload: Record<string, unknown> = {
+
+    const payload: Record<string, unknown> = {
       injected: true,
       multiplier: factor ?? multiplier,
-      magnitude: factor ?? multiplier, // pricingEngine reads `magnitude`, not `multiplier`
+      magnitude: factor ?? multiplier,
     };
     if (productId) payload.productId = productId;
     if (categoryId) payload.categoryId = categoryId;
-    // Create synthetic DemandEvent
+
     const event = await prisma.demandEvent.create({
       data: {
         storeId,
@@ -73,7 +72,7 @@ router.post("/inject", async (req: Request, res: Response) => {
         payload: payload as Prisma.InputJsonValue,
       },
     });
-    // --- Cache invalidation for this store ---
+
     const redis = getRedis();
     const storeKey = CacheKeys.storePrice(storeId);
     await redis.del(storeKey);
@@ -86,9 +85,6 @@ router.post("/inject", async (req: Request, res: Response) => {
       );
     }
 
-    // --- Synchronous reprice + broadcast (don't wait for the 15s poller) ---
-    // Determine which products to reprice: a single product if given,
-    // otherwise every product currently stocked in this store.
     let targetProductIds: string[];
     if (productId) {
       targetProductIds = [productId];
@@ -99,6 +95,63 @@ router.post("/inject", async (req: Request, res: Response) => {
       });
       targetProductIds = inventoryItems.map((i) => i.productId);
     }
+
+    // --- Deduct stock proportional to injected demand, and broadcast
+    //     a stock-update SSE event per product so the UI reflects it live ---
+    const effectiveMultiplier = factor ?? multiplier;
+    const deductionCount = Math.min(Math.round(effectiveMultiplier * 2), 15);
+
+    await Promise.all(
+      targetProductIds.map(async (pid) => {
+        const inventory = await prisma.inventory.findUnique({
+          where: { storeId_productId: { storeId, productId: pid } },
+          include: { product: { select: { name: true, sku: true } } },
+        });
+        if (!inventory) return;
+
+        const quantityBefore = inventory.quantityOnHand;
+        const quantityAfter = Math.max(0, quantityBefore - deductionCount);
+        const actualDeducted = quantityBefore - quantityAfter;
+
+        await prisma.inventory
+          .update({
+            where: { storeId_productId: { storeId, productId: pid } },
+            data: { quantityOnHand: quantityAfter },
+          })
+          .catch((err) => {
+            console.error(
+              `[Simulator] Inject: failed to decrement stock for product=${pid}`,
+              err,
+            );
+            return null;
+          });
+
+        broadcast(
+          storeId,
+          {
+            productId: pid,
+            name: inventory.product.name,
+            sku: inventory.product.sku,
+            unitsOrdered: actualDeducted,
+            quantityBefore,
+            quantityAfter,
+            reorderLevel: inventory.reorderLevel,
+            reorderQty: inventory.reorderQty,
+            status: computeInventoryStatus(quantityAfter, inventory.reorderLevel),
+            levelPercent: computeLevelPercent(
+              quantityAfter,
+              inventory.reorderLevel,
+              inventory.reorderQty,
+            ),
+            updatedAt: new Date().toISOString(),
+          },
+          "stock-update",
+        );
+      }),
+    );
+    console.log(
+      `[Simulator] Inject: deducted ~${deductionCount} units from ${targetProductIds.length} products (multiplier=${effectiveMultiplier})`,
+    );
 
     const updates = (
       await Promise.all(
@@ -128,12 +181,10 @@ router.post("/inject", async (req: Request, res: Response) => {
     );
 
     return res.json({
-      message: "Surge injected, repriced, and broadcast",
+      message: "Surge injected, stock deducted, repriced, and broadcast",
       event,
-      cacheInvalidated: {
-        storeKey,
-        productKeys: productKeys.length,
-      },
+      stockDeductedPerProduct: deductionCount,
+      cacheInvalidated: { storeKey, productKeys: productKeys.length },
       repriced: updates,
     });
   } catch (err) {

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 
-
 export interface PriceEntry {
   productId: string;
   productName: string;
@@ -12,15 +11,31 @@ export interface PriceEntry {
   updatedAt: string;
 }
 
+export interface InventoryItem {
+  productId: string;
+  name: string;
+  sku: string;
+  quantityOnHand: number;
+  reorderLevel: number;
+  reorderQty: number;
+  status: "HEALTHY" | "LOW_STOCK" | "CRITICAL";
+  levelPercent: number;
+}
+
 export interface PriceEvent {
   id: string;
+  type: "price" | "stock";
   productName: string;
-  surgeMultiplier: number;
   timestamp: string;
+  surgeMultiplier?: number;
+  unitsOrdered?: number;
+  quantityBefore?: number;
+  quantityAfter?: number;
 }
 
 interface UsePriceStreamResult {
   prices: Record<string, PriceEntry>;
+  inventory: Record<string, InventoryItem>;
   status: "connecting" | "connected" | "disconnected";
   lastUpdated: string | null;
   events: PriceEvent[];
@@ -28,9 +43,8 @@ interface UsePriceStreamResult {
 
 export function usePriceStream(storeId: string): UsePriceStreamResult {
   const [prices, setPrices] = useState<Record<string, PriceEntry>>({});
-const [status, setStatus] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const [inventory, setInventory] = useState<Record<string, InventoryItem>>({});
+const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [events, setEvents] = useState<PriceEvent[]>([]);
   const esRef = useRef<EventSource | null>(null);
@@ -40,9 +54,10 @@ const [status, setStatus] = useState<
 
     setStatus("connecting");
     setPrices({});
+    setInventory({});
     setEvents([]);
 
-    // Initial load — fetch current prices immediately on mount
+    // Initial price load
     fetch(`http://localhost:4000/pricing/current/${storeId}`)
       .then((r) => r.json())
       .then((data: { prices: PriceEntry[] }) => {
@@ -65,6 +80,18 @@ const [status, setStatus] = useState<
       })
       .catch(() => {});
 
+    // Initial inventory load
+    fetch(`http://localhost:4000/inventory/${storeId}`)
+      .then((r) => r.json())
+      .then((data: { inventory: InventoryItem[] }) => {
+        const map: Record<string, InventoryItem> = {};
+        (data.inventory ?? []).forEach((item) => {
+          map[item.productId] = item;
+        });
+        setInventory(map);
+      })
+      .catch(() => {});
+
     const es = new EventSource(`http://localhost:4000/stream/${storeId}`);
     esRef.current = es;
 
@@ -73,7 +100,6 @@ const [status, setStatus] = useState<
     });
 
     es.addEventListener("price-update", (e: MessageEvent) => {
-      console.log("price-update received:", e.data);
       const raw = JSON.parse(e.data);
       const data: PriceEntry = {
         productId: raw.productId,
@@ -89,13 +115,44 @@ const [status, setStatus] = useState<
       setPrices((prev) => ({ ...prev, [data.productId]: data }));
       setEvents((prev) => {
         const next: PriceEvent = {
-          id: `${data.productId}-${data.updatedAt}`,
+          id: `price-${data.productId}-${data.updatedAt}`,
+          type: "price",
           productName: data.productName,
           surgeMultiplier: data.surgeMultiplier,
           timestamp: data.updatedAt,
         };
-        return [next, ...prev].slice(0, 5);
+        return [next, ...prev].slice(0, 20);
       });
+    });
+
+    es.addEventListener("stock-update", (e: MessageEvent) => {
+      const raw = JSON.parse(e.data);
+      const item: InventoryItem = {
+        productId: raw.productId,
+        name: raw.name,
+        sku: raw.sku,
+        quantityOnHand: raw.quantityAfter,
+        reorderLevel: raw.reorderLevel,
+        reorderQty: raw.reorderQty,
+        status: raw.status,
+        levelPercent: raw.levelPercent,
+      };
+      setInventory((prev) => ({ ...prev, [item.productId]: item }));
+
+      if (raw.unitsOrdered > 0) {
+        setEvents((prev) => {
+          const next: PriceEvent = {
+            id: `stock-${raw.productId}-${raw.updatedAt}`,
+            type: "stock",
+            productName: raw.name,
+            timestamp: raw.updatedAt,
+            unitsOrdered: raw.unitsOrdered,
+            quantityBefore: raw.quantityBefore,
+            quantityAfter: raw.quantityAfter,
+          };
+          return [next, ...prev].slice(0, 20);
+        });
+      }
     });
 
     es.onerror = () => {
@@ -109,5 +166,5 @@ const [status, setStatus] = useState<
     };
   }, [storeId]);
 
-  return { prices, status, lastUpdated, events };
+  return { prices, inventory, status, lastUpdated, events };
 }
