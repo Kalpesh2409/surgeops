@@ -139,19 +139,25 @@ export async function computeSuggestedPrice(
     where: { storeId_productId: { storeId, productId } },
   });
 
-  // 3. Fetch recent demand events
+  // 3. Fetch recent demand events for this store, then filter in-memory.
+  // A DemandEvent applies to this product if its payload.productId matches,
+  // OR if the event has no productId at all (store-wide injects like the
+  // Traffic Simulator's "+100/+500/+1000 Users" and DDoS buttons, which are
+  // meant to affect every product in the store).
   const since = new Date(Date.now() - LOOKBACK_MINUTES * 60 * 1000);
-  const events = await prisma.demandEvent.findMany({
+  const allStoreEvents = await prisma.demandEvent.findMany({
     where: {
       storeId,
-      payload: {
-        path: ["productId"],
-        equals: productId,
-      },
       recordedAt: { gte: since },
     },
     orderBy: { recordedAt: "desc" },
-    take: 100,
+    take: 200,
+  });
+
+  const events = allStoreEvents.filter((event) => {
+    const payload = event.payload as Record<string, unknown> | null;
+    const eventProductId = payload?.productId;
+    return eventProductId === undefined || eventProductId === productId;
   });
 
   // 4. Compute demand score + raw multiplier

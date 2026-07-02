@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SystemStatus } from "@/components/SystemStatus";
 import { RecentEvents } from "@/components/RecentEvents";
 import { InventoryPanel } from "@/components/InventoryPanel";
+import { TrafficSimulator } from "@/components/TrafficSimulator";
 
 export default function App() {
   const [storeId, setStoreId] = useState("store-mumbai-bandra");
@@ -90,6 +91,7 @@ export default function App() {
             <SystemStatus />
           </div>
           <div className="space-y-6">
+            <TrafficSimulator storeId={storeId} />
             <RecentEvents events={events} />
           </div>
         </div>
