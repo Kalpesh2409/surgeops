@@ -5,7 +5,15 @@ interface RecentEventsProps {
   events: PriceEvent[];
 }
 
+const MAX_PER_COLUMN = 8;
+
 export function RecentEvents({ events }: RecentEventsProps) {
+  const priceEvents = events.filter((e) => e.type === 'price').slice(0, MAX_PER_COLUMN);
+  const stockEvents = events.filter((e) => e.type === 'stock').slice(0, MAX_PER_COLUMN);
+
+  const formatTime = (ts: string) =>
+    new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
   return (
     <Card>
       <CardHeader>
@@ -15,30 +23,49 @@ export function RecentEvents({ events }: RecentEventsProps) {
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">No events yet.</p>
         ) : (
-          <ul className="space-y-2">
-            {events.map((event) => {
-              const time = new Date(event.timestamp).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              });
-              return (
-                <li key={event.id} className="text-sm text-muted-foreground">
-                  <span className="text-foreground font-medium">{time}</span>{' '}
-                  {event.type === 'price' ? (
-                    <>
-                      {event.productName} multiplier raised to{' '}
-                      {event.surgeMultiplier?.toFixed(2)}x
-                    </>
-                  ) : (
-                    <>
-                      {event.unitsOrdered} units ordered — {event.productName} (
-                      {event.quantityBefore} → {event.quantityAfter})
-                    </>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Price changes */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                PRICE CHANGES
+              </p>
+              {priceEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No price changes yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {priceEvents.map((event) => (
+                    <li key={event.id} className="text-sm text-muted-foreground">
+                      <span className="text-foreground font-medium">
+                        {formatTime(event.timestamp)}
+                      </span>{' '}
+                      {event.productName} → {event.surgeMultiplier?.toFixed(2)}x
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Stock changes */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                STOCK CHANGES
+              </p>
+              {stockEvents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No stock changes yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {stockEvents.map((event) => (
+                    <li key={event.id} className="text-sm text-muted-foreground">
+                      <span className="text-foreground font-medium">
+                        {formatTime(event.timestamp)}
+                      </span>{' '}
+                      {event.productName} ({event.quantityBefore} → {event.quantityAfter})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -44,7 +44,9 @@ interface UsePriceStreamResult {
 export function usePriceStream(storeId: string): UsePriceStreamResult {
   const [prices, setPrices] = useState<Record<string, PriceEntry>>({});
   const [inventory, setInventory] = useState<Record<string, InventoryItem>>({});
-const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
+  const [status, setStatus] = useState<
+    "connecting" | "connected" | "disconnected"
+  >("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [events, setEvents] = useState<PriceEvent[]>([]);
   const esRef = useRef<EventSource | null>(null);
@@ -121,7 +123,11 @@ const [status, setStatus] = useState<"connecting" | "connected" | "disconnected"
           surgeMultiplier: data.surgeMultiplier,
           timestamp: data.updatedAt,
         };
-        return [next, ...prev].slice(0, 20);
+        // Replace any existing price entry for this product instead of stacking duplicates
+        const filtered = prev.filter(
+          (ev) => !(ev.type === "price" && ev.productName === data.productName),
+        );
+        return [next, ...filtered].slice(0, 40);
       });
     });
 
@@ -150,7 +156,11 @@ const [status, setStatus] = useState<"connecting" | "connected" | "disconnected"
             quantityBefore: raw.quantityBefore,
             quantityAfter: raw.quantityAfter,
           };
-          return [next, ...prev].slice(0, 20);
+          // Replace any existing stock entry for this product instead of stacking duplicates
+          const filtered = prev.filter(
+            (ev) => !(ev.type === "stock" && ev.productName === raw.name),
+          );
+          return [next, ...filtered].slice(0, 40);
         });
       }
     });
