@@ -7,6 +7,7 @@ import { SystemStatus } from "@/components/SystemStatus";
 import { RecentEvents } from "@/components/RecentEvents";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { TrafficSimulator } from "@/components/TrafficSimulator";
+import { MlComparisonPanel } from "@/components/MlComparisonPanel";
 
 export default function App() {
   const [storeId, setStoreId] = useState("store-mumbai-bandra");
@@ -83,6 +84,8 @@ export default function App() {
             <PriceTable prices={prices} />
           </CardContent>
         </Card>
+        {/* ML Comparison Panel */}
+        <MlComparisonPanel storeId={storeId} />
 
         {/* Bottom panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,6 +1,6 @@
 // src/index.ts
 // Session 6 patch: Redis graceful disconnect + health router registration
-// All other setup (simulator, demandIngestionLoop) unchanged from Sessions 4–5.
+// Session 14: wired mlSuggestionLoop into boot + shutdown alongside demandIngestionLoop.
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
@@ -10,6 +10,10 @@ import {
   startDemandIngestionLoop,
   stopDemandIngestionLoop,
 } from "./services/demandIngestionLoop";
+import {
+  startMlSuggestionLoop,
+  stopMlSuggestionLoop,
+} from "./services/mlSuggestionLoop";
 import { disconnectRedis } from "./lib/redisClient";
 
 // Routes
@@ -56,6 +60,7 @@ app.listen(PORT, () => {
   }
 
   startDemandIngestionLoop();
+  startMlSuggestionLoop();
 });
 
 // ── Graceful shutdown ─────────────────────────────────────────────────────────
@@ -63,6 +68,7 @@ async function shutdown(signal: string) {
   console.log(`\n[Server] ${signal} received — shutting down…`);
   stopSimulator();
   stopDemandIngestionLoop();
+  stopMlSuggestionLoop();
   await disconnectRedis(); // ← Session 6: Redis disconnect
   await prisma.$disconnect();
   process.exit(0);

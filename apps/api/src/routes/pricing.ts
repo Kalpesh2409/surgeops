@@ -29,11 +29,12 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
     console.log(`[Pricing] CACHE MISS store=${storeId} key=${cacheKey} → DB`);
 
     // --- DB fallback ---
-// --- DB fallback ---
     const inventory = await prisma.inventory.findMany({
       where: { storeId },
       include: {
-        product: { select: { id: true, name: true, sku: true, basePrice: true } },
+        product: {
+          select: { id: true, name: true, sku: true, basePrice: true },
+        },
       },
     });
 
@@ -56,9 +57,7 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
       const basePrice = inv.product.basePrice;
       const currentPrice = Number(inv.currentPrice);
       const surgeMultiplier =
-        basePrice > 0
-          ? parseFloat((currentPrice / basePrice).toFixed(4))
-          : 1.0;
+        basePrice > 0 ? parseFloat((currentPrice / basePrice).toFixed(4)) : 1.0;
 
       return {
         productId: inv.productId,
@@ -147,6 +146,85 @@ router.get("/product/:productId", async (req: Request, res: Response) => {
     return res.json({ productId, stores: results });
   } catch (err) {
     console.error("[Pricing] /product error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── GET /pricing/compare/:storeId ─────────────────────────────────────────────
+// Returns rules-engine vs ML pricing suggestions side by side, per product,
+// for the ML comparison panel (Session 14).
+// Rules-engine price uses Inventory.currentPrice as the source of truth
+// (falls back to it since writePriceUpdates() only writes a PricingSuggestion
+// audit row when price actually changes — epsilon-skip means many products
+// won't have a recent surge_engine_v1 row even though the price is current).
+router.get("/compare/:storeId", async (req: Request, res: Response) => {
+  const { storeId } = req.params;
+
+  try {
+    const inventory = await prisma.inventory.findMany({
+      where: { storeId },
+      include: {
+        product: {
+          select: { id: true, name: true, sku: true, basePrice: true },
+        },
+      },
+    });
+
+    if (inventory.length === 0) {
+      return res.status(404).json({ error: "Store not found or no inventory" });
+    }
+
+    // Latest audit rows per product per model (for confidence + timestamps)
+    const rulesSuggestions = await prisma.pricingSuggestion.findMany({
+      where: { storeId, model: "surge_engine_v1" },
+      orderBy: { createdAt: "desc" },
+      distinct: ["productId"],
+    });
+    const mlSuggestions = await prisma.pricingSuggestion.findMany({
+      where: { storeId, model: "random_forest_v1" },
+      orderBy: { createdAt: "desc" },
+      distinct: ["productId"],
+    });
+
+    const rulesByProduct = new Map(
+      rulesSuggestions.map((s) => [s.productId, s]),
+    );
+    const mlByProduct = new Map(mlSuggestions.map((s) => [s.productId, s]));
+
+    const comparison = inventory.map((inv) => {
+      const rulesAudit = rulesByProduct.get(inv.productId);
+      const ml = mlByProduct.get(inv.productId);
+
+      // Rules-engine price: live Inventory.currentPrice is authoritative
+      const rulesPrice = Number(inv.currentPrice);
+      const mlPrice = ml?.suggestedPrice ?? null;
+      const delta =
+        mlPrice !== null ? parseFloat((mlPrice - rulesPrice).toFixed(2)) : null;
+
+      return {
+        productId: inv.productId,
+        productName: inv.product.name,
+        sku: inv.product.sku,
+        basePrice: inv.product.basePrice,
+        rulesEngine: {
+          suggestedPrice: rulesPrice,
+          confidence: rulesAudit?.confidence ?? 0,
+          updatedAt: (rulesAudit?.createdAt ?? inv.updatedAt).toISOString(),
+        },
+        ml: ml
+          ? {
+              suggestedPrice: mlPrice,
+              confidence: ml.confidence,
+              updatedAt: ml.createdAt.toISOString(),
+            }
+          : null,
+        delta,
+      };
+    });
+
+    return res.json({ storeId, comparison });
+  } catch (err) {
+    console.error("[Pricing] /compare error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });
