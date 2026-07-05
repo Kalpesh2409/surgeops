@@ -1,10 +1,17 @@
 /**
- * pricingEngine.ts — SurgeOps Session 5
+ * pricingEngine.ts — SurgeOps Session 15
  *
- * Reads recent DemandEvents for a store+product, computes a surge multiplier
- * bounded by the PricingRule guardrails, and returns a suggested price.
+ * Baseline demand price now comes from the trained ML model (latest
+ * random_forest_v1 PricingSuggestion row). Live DemandEvents no longer
+ * compute the price from scratch — instead they compute a real-time surge
+ * ADJUSTMENT that is applied on top of the ML baseline. This preserves the
+ * live-reactivity demo (Traffic Simulator / DDoS injects) while making the
+ * ML model the source of truth for "expected" demand.
  *
- * No paid APIs — pure rules-based logic.
+ * Falls back to pure rules-based scoring (Session 5 behavior) if no ML
+ * suggestion exists yet for a given store+product.
+ *
+ * No paid APIs — pure rules-based + locally trained ML logic.
  */
 
 import { PrismaClient, Prisma } from "@prisma/client";
@@ -28,6 +35,7 @@ export interface PricingResult {
   confidence: number;
   reasoning: string;
   hasRule: boolean;
+  usedMlBaseline: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -44,7 +52,12 @@ const EVENT_WEIGHTS: Record<string, number> = {
   SURGE_INJECT: 3.0,
 };
 
-/** Demand score → multiplier curve breakpoints */
+/**
+ * Demand score → surge ADJUSTMENT FACTOR curve breakpoints.
+ * At score 0 this returns 1.0 (i.e. no adjustment to the ML baseline).
+ * This curve is unchanged from Session 5 — it's just reinterpreted now as
+ * an adjustment on top of the ML baseline rather than a standalone multiplier.
+ */
 const SURGE_THRESHOLDS = [
   { minScore: 0, multiplier: 1.0 },
   { minScore: 3, multiplier: 1.1 },
@@ -54,6 +67,9 @@ const SURGE_THRESHOLDS = [
   { minScore: 20, multiplier: 1.75 },
   { minScore: 30, multiplier: 2.0 },
 ];
+
+/** Which PricingSuggestion.model value counts as the ML baseline source */
+const ML_MODEL_NAME = "random_forest_v1";
 
 // ── Core engine ───────────────────────────────────────────────────────────────
 
@@ -88,7 +104,8 @@ function computeDemandScore(
 }
 
 /**
- * Map demand score → raw surge multiplier (step function, no extrapolation).
+ * Map demand score → surge adjustment factor (step function, no extrapolation).
+ * Returns 1.0 at score 0, meaning "no change to the ML baseline".
  */
 function scoreToMultiplier(score: number): number {
   let multiplier = 1.0;
@@ -109,6 +126,25 @@ function computeConfidence(eventCount: number, demandScore: number): number {
   return parseFloat(
     ((eventFactor * 0.5 + scoreFactor * 0.5) * 0.95 + 0.05).toFixed(4),
   );
+}
+
+/**
+ * Fetch the most recent ML-generated PricingSuggestion (random_forest_v1)
+ * for a given store+product. Returns null if none exists yet — callers
+ * must fall back to rules-only behavior in that case.
+ */
+async function getLatestMlBaseline(
+  storeId: string,
+  productId: string,
+): Promise<{ suggestedPrice: number; confidence: number } | null> {
+  const row = await prisma.pricingSuggestion.findFirst({
+    where: { storeId, productId, model: ML_MODEL_NAME },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return row
+    ? { suggestedPrice: row.suggestedPrice, confidence: row.confidence }
+    : null;
 }
 
 /**
@@ -160,11 +196,25 @@ export async function computeSuggestedPrice(
     return eventProductId === undefined || eventProductId === productId;
   });
 
-  // 4. Compute demand score + raw multiplier
+  // 4. Compute ML baseline (if available) + live surge adjustment factor
+  const mlBaseline = await getLatestMlBaseline(storeId, productId);
   const demandScore = computeDemandScore(events);
-  let rawMultiplier = scoreToMultiplier(demandScore);
+  const surgeAdjustmentFactor = scoreToMultiplier(demandScore);
 
-  // 5. Apply rule guardrails
+  let rawMultiplier: number;
+  const usedMlBaseline = !!mlBaseline && basePrice > 0;
+
+  if (usedMlBaseline) {
+    // mlBaseline is guaranteed non-null here (checked in usedMlBaseline)
+    const mlBaselineMultiplier = mlBaseline!.suggestedPrice / basePrice;
+    rawMultiplier = mlBaselineMultiplier * surgeAdjustmentFactor;
+  } else {
+    // Fallback: no ML suggestion yet — behave exactly as Sessions 5–14 did
+    rawMultiplier = surgeAdjustmentFactor;
+  }
+
+  // 5. Apply rule guardrails (unchanged from Session 5 — operates on
+  // rawMultiplier regardless of whether it came from ML+surge or rules-only)
   let suggestedPrice: number;
   let reasoning: string;
 
@@ -178,13 +228,19 @@ export async function computeSuggestedPrice(
       Math.min(rule.ceilPrice, unclamped),
     );
     rawMultiplier = cappedMultiplier;
-    reasoning = `demandScore=${demandScore.toFixed(2)}, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`;
+
+    reasoning = usedMlBaseline
+      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)}, demandScore=${demandScore.toFixed(2)}, surgeAdj=${surgeAdjustmentFactor.toFixed(2)}x, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`
+      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`;
   } else {
     // No rule — apply a conservative default cap of 1.5x
     const defaultCap = 1.5;
     rawMultiplier = Math.min(rawMultiplier, defaultCap);
     suggestedPrice = parseFloat((basePrice * rawMultiplier).toFixed(2));
-    reasoning = `demandScore=${demandScore.toFixed(2)}, multiplier=${rawMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`;
+
+    reasoning = usedMlBaseline
+      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)}, demandScore=${demandScore.toFixed(2)}, surgeAdj=${surgeAdjustmentFactor.toFixed(2)}x, multiplier=${rawMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`
+      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${rawMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`;
   }
 
   const confidence = computeConfidence(events.length, demandScore);
@@ -199,5 +255,6 @@ export async function computeSuggestedPrice(
     confidence,
     reasoning,
     hasRule: !!rule,
+    usedMlBaseline,
   };
 }
