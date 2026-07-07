@@ -11,6 +11,16 @@
  * Falls back to pure rules-based scoring (Session 5 behavior) if no ML
  * suggestion exists yet for a given store+product.
  *
+ * GUARDRAIL FIX (Session 15 follow-up): surgeMultiplierMax now caps only the
+ * LIVE SURGE ADJUSTMENT portion, not the ML baseline itself. Previously the
+ * cap was applied to the combined (ML baseline × surge) multiplier, which
+ * meant a high-confidence ML prediction could get silently clipped even with
+ * zero live demand events. Now: the ML baseline is trusted as-is (it's a
+ * learned pattern, not a reactive spike), live events can only adjust price
+ * upward/downward from that baseline within surgeMultiplierMax bounds, and
+ * floorPrice/ceilPrice still apply as the absolute final safety net on the
+ * resulting price regardless of source.
+ *
  * No paid APIs — pure rules-based + locally trained ML logic.
  */
 
@@ -201,46 +211,61 @@ export async function computeSuggestedPrice(
   const demandScore = computeDemandScore(events);
   const surgeAdjustmentFactor = scoreToMultiplier(demandScore);
 
-  let rawMultiplier: number;
   const usedMlBaseline = !!mlBaseline && basePrice > 0;
+  const mlBaselineMultiplier = usedMlBaseline
+    ? mlBaseline!.suggestedPrice / basePrice
+    : 1.0;
 
-  if (usedMlBaseline) {
-    // mlBaseline is guaranteed non-null here (checked in usedMlBaseline)
-    const mlBaselineMultiplier = mlBaseline!.suggestedPrice / basePrice;
-    rawMultiplier = mlBaselineMultiplier * surgeAdjustmentFactor;
-  } else {
-    // Fallback: no ML suggestion yet — behave exactly as Sessions 5–14 did
-    rawMultiplier = surgeAdjustmentFactor;
-  }
-
-  // 5. Apply rule guardrails (unchanged from Session 5 — operates on
-  // rawMultiplier regardless of whether it came from ML+surge or rules-only)
+  // 5. Apply rule guardrails.
+  // GUARDRAIL FIX: surgeMultiplierMax now caps ONLY the live surge adjustment
+  // factor, never the ML baseline itself. The ML baseline reflects a learned
+  // historical pattern, not a reactive spike — it shouldn't be silently
+  // clipped by a cap that was designed to bound live event reactivity.
+  // floorPrice/ceilPrice still apply afterward as the absolute final safety
+  // net on the resulting price, regardless of source.
+  let rawMultiplier: number;
   let suggestedPrice: number;
   let reasoning: string;
 
   if (rule && rule.isActive) {
-    // Cap multiplier at rule's surgeMultiplierMax
-    const cappedMultiplier = Math.min(rawMultiplier, rule.surgeMultiplierMax);
-    const unclamped = parseFloat((basePrice * cappedMultiplier).toFixed(2));
-    // Clamp to [floorPrice, ceilPrice]
+    const cappedSurgeAdjustment = Math.min(
+      surgeAdjustmentFactor,
+      rule.surgeMultiplierMax,
+    );
+
+    const combinedMultiplier = usedMlBaseline
+      ? mlBaselineMultiplier * cappedSurgeAdjustment
+      : cappedSurgeAdjustment;
+
+    const unclamped = parseFloat(
+      (basePrice * combinedMultiplier).toFixed(2),
+    );
+    // Clamp to [floorPrice, ceilPrice] — final absolute safety net
     suggestedPrice = Math.max(
       rule.floorPrice,
       Math.min(rule.ceilPrice, unclamped),
     );
-    rawMultiplier = cappedMultiplier;
+    rawMultiplier = combinedMultiplier;
 
     reasoning = usedMlBaseline
-      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)}, demandScore=${demandScore.toFixed(2)}, surgeAdj=${surgeAdjustmentFactor.toFixed(2)}x, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`
-      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${cappedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`;
+      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)} (uncapped), demandScore=${demandScore.toFixed(2)}, surgeAdj=${cappedSurgeAdjustment.toFixed(2)}x (capped at ${rule.surgeMultiplierMax}x), multiplier=${combinedMultiplier.toFixed(2)}x, clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`
+      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${combinedMultiplier.toFixed(2)}x (capped at ${rule.surgeMultiplierMax}x), clamped to [₹${rule.floorPrice}–₹${rule.ceilPrice}], events=${events.length}`;
   } else {
-    // No rule — apply a conservative default cap of 1.5x
+    // No rule — apply a conservative default cap of 1.5x to the SURGE
+    // ADJUSTMENT only, same principle as above, not to the ML baseline.
     const defaultCap = 1.5;
-    rawMultiplier = Math.min(rawMultiplier, defaultCap);
-    suggestedPrice = parseFloat((basePrice * rawMultiplier).toFixed(2));
+    const cappedSurgeAdjustment = Math.min(surgeAdjustmentFactor, defaultCap);
+
+    const combinedMultiplier = usedMlBaseline
+      ? mlBaselineMultiplier * cappedSurgeAdjustment
+      : cappedSurgeAdjustment;
+
+    suggestedPrice = parseFloat((basePrice * combinedMultiplier).toFixed(2));
+    rawMultiplier = combinedMultiplier;
 
     reasoning = usedMlBaseline
-      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)}, demandScore=${demandScore.toFixed(2)}, surgeAdj=${surgeAdjustmentFactor.toFixed(2)}x, multiplier=${rawMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`
-      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${rawMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`;
+      ? `mlBaseline=₹${mlBaseline!.suggestedPrice.toFixed(2)} (uncapped), demandScore=${demandScore.toFixed(2)}, surgeAdj=${cappedSurgeAdjustment.toFixed(2)}x (no rule, default cap ${defaultCap}x), multiplier=${combinedMultiplier.toFixed(2)}x, events=${events.length}`
+      : `[rules-only fallback, no ML data yet] demandScore=${demandScore.toFixed(2)}, multiplier=${combinedMultiplier.toFixed(2)}x (no rule, default cap ${defaultCap}x), events=${events.length}`;
   }
 
   const confidence = computeConfidence(events.length, demandScore);

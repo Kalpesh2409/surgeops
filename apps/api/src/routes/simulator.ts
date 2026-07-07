@@ -164,12 +164,14 @@ router.post("/inject", async (req: Request, res: Response) => {
         targetProductIds.map((pid) =>
           computeSuggestedPrice({ storeId, productId: pid })
             .then((result) => ({
-              storeId,
-              productId: pid,
-              currentPrice: result.suggestedPrice,
-              surgeMultiplier: result.surgeMultiplier,
-              confidence: result.confidence,
-            }))
+  storeId,
+  productId: pid,
+  currentPrice: result.suggestedPrice,
+  surgeMultiplier: result.surgeMultiplier,
+  confidence: result.confidence,
+  usedMlBaseline: result.usedMlBaseline,
+  reasoning: result.reasoning,
+}))
             .catch((err) => {
               console.error(
                 `[Simulator] Inject: failed to compute price for product=${pid}`,
