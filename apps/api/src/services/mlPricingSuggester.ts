@@ -33,11 +33,11 @@ interface MlPredictResponse {
   store_id: string;
   product_id: string;
   predicted_demand: number;
+  confidence: number;
   hour_of_day: number;
   day_of_week: number;
   model: string;
 }
-
 async function callPredict(
   storeId: string,
   productId: string,
@@ -100,7 +100,7 @@ export async function generateMlPricingSuggestions(): Promise<{
         );
       }
 
-      const confidence = 0.6;
+      const confidence = prediction.confidence;
 
       await prisma.pricingSuggestion.create({
         data: {
@@ -124,4 +124,3 @@ export async function generateMlPricingSuggestions(): Promise<{
 
   return { total: inventoryRows.length, written, errors };
 }
-
