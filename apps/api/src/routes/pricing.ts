@@ -199,7 +199,7 @@ router.get("/compare/:storeId", async (req: Request, res: Response) => {
       const rulesPrice = Number(inv.currentPrice);
       const mlPrice = ml?.suggestedPrice ?? null;
       const delta =
-        mlPrice !== null ? parseFloat((mlPrice - rulesPrice).toFixed(2)) : null;
+        mlPrice !== null ? parseFloat((rulesPrice - mlPrice).toFixed(2)) : null;
 
       return {
         productId: inv.productId,

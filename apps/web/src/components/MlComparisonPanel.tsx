@@ -1,4 +1,11 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMlComparison } from "@/hooks/useMlComparison";
@@ -9,8 +16,14 @@ interface MlComparisonPanelProps {
 
 function getDeltaBadge(delta: number | null) {
   if (delta === null) return <Badge variant="outline">—</Badge>;
-  if (delta > 0) return <Badge className="bg-amber-500 text-white">+₹{delta.toFixed(2)}</Badge>;
-  if (delta < 0) return <Badge className="bg-blue-500 text-white">₹{delta.toFixed(2)}</Badge>;
+  if (delta > 0)
+    return (
+      <Badge className="bg-amber-500 text-white">+₹{delta.toFixed(2)}</Badge>
+    );
+  if (delta < 0)
+    return (
+      <Badge className="bg-blue-500 text-white">₹{delta.toFixed(2)}</Badge>
+    );
   return <Badge className="bg-green-500 text-white">₹0.00</Badge>;
 }
 
@@ -21,10 +34,12 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold">
-          ML vs Rules-Engine Pricing
+          Live Price vs Pure ML Baseline
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Comparing rules-based surge pricing against RandomForest demand predictions
+          Comparing the actual live price (ML baseline + real-time surge,
+          guardrail-clamped) against the model's raw baseline prediction with no
+          surge applied
         </p>
       </CardHeader>
       <CardContent>
@@ -33,9 +48,7 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
             Loading comparison data...
           </div>
         ) : error ? (
-          <div className="text-center text-red-400 py-12">
-            Error: {error}
-          </div>
+          <div className="text-center text-red-400 py-12">Error: {error}</div>
         ) : comparison.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             No comparison data yet. Select a store to begin.
@@ -47,22 +60,34 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
                 <TableHead>Product</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Base Price (₹)</TableHead>
-                <TableHead>Rules-Engine (₹)</TableHead>
-                <TableHead>ML Prediction (₹)</TableHead>
-                <TableHead>Delta</TableHead>
+                <TableHead>Live Price (₹)</TableHead>
+                <TableHead>Pure ML Baseline (₹)</TableHead>
+                <TableHead>Surge Premium</TableHead>
                 <TableHead>ML Confidence</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {comparison.map((entry) => (
                 <TableRow key={entry.productId}>
-                  <TableCell className="font-medium">{entry.productName}</TableCell>
-                  <TableCell className="text-muted-foreground">{entry.sku}</TableCell>
-                  <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
-                  <TableCell>₹{entry.rulesEngine.suggestedPrice.toFixed(2)}</TableCell>
+                  <TableCell className="font-medium">
+                    {entry.productName}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {entry.sku}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    ₹{entry.basePrice.toFixed(2)}
+                  </TableCell>
                   <TableCell>
-                    {entry.ml ? `₹${entry.ml.suggestedPrice.toFixed(2)}` : (
-                      <span className="text-muted-foreground text-sm">Pending</span>
+                    ₹{entry.rulesEngine.suggestedPrice.toFixed(2)}
+                  </TableCell>
+                  <TableCell>
+                    {entry.ml ? (
+                      `₹${entry.ml.suggestedPrice.toFixed(2)}`
+                    ) : (
+                      <span className="text-muted-foreground text-sm">
+                        Pending
+                      </span>
                     )}
                   </TableCell>
                   <TableCell>{getDeltaBadge(entry.delta)}</TableCell>
@@ -72,7 +97,9 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
                         <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
                           <div
                             className="h-full bg-teal-500"
-                            style={{ width: `${Math.max(4, Math.round(entry.ml.confidence * 100))}%` }}
+                            style={{
+                              width: `${Math.max(4, Math.round(entry.ml.confidence * 100))}%`,
+                            }}
                           />
                         </div>
                         <span className="text-xs text-muted-foreground w-8">
