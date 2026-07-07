@@ -9,7 +9,10 @@ import {
 } from "../services/orderSimulator";
 import { getRedis, CacheKeys } from "../lib/redisClient";
 import { broadcast } from "../lib/sseManager";
-import { computeInventoryStatus, computeLevelPercent } from "../lib/inventoryStatus";
+import {
+  computeInventoryStatus,
+  computeLevelPercent,
+} from "../lib/inventoryStatus";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -137,7 +140,10 @@ router.post("/inject", async (req: Request, res: Response) => {
             quantityAfter,
             reorderLevel: inventory.reorderLevel,
             reorderQty: inventory.reorderQty,
-            status: computeInventoryStatus(quantityAfter, inventory.reorderLevel),
+            status: computeInventoryStatus(
+              quantityAfter,
+              inventory.reorderLevel,
+            ),
             levelPercent: computeLevelPercent(
               quantityAfter,
               inventory.reorderLevel,
