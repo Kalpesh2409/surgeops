@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { computeSuggestedPrice } from "./pricingEngine";
 import { writePriceUpdates } from "./priceUpdateWriter";
 import { getRedis, CacheKeys } from "../lib/redisClient";
+import { generatePriceExplanation } from "./geminiExplainer";
 
 const prisma = new PrismaClient();
 
@@ -9,6 +10,7 @@ let loopTimer: ReturnType<typeof setInterval> | null = null;
 let highWaterMark: Date = new Date(0); // deduplication cursor
 
 const POLL_INTERVAL_MS = 15_000;
+const EXPLANATION_EPSILON = 0.5; // ₹ — skip Gemini call if price hasn't moved beyond this
 
 async function tick(): Promise<void> {
   try {
@@ -66,6 +68,11 @@ async function tick(): Promise<void> {
 
       // --- Write store-level aggregate cache (TTL 30s) ---
       // Fetch current inventory prices for this store after updates
+      const store = await prisma.store.findUnique({
+        where: { id: storeId },
+        select: { name: true },
+      });
+
       const inventory = await prisma.inventory.findMany({
         where: { storeId },
         include: {
@@ -86,27 +93,83 @@ async function tick(): Promise<void> {
         latestSuggestions.map((s) => [s.productId, s.confidence]),
       );
 
-      const storeAgg = inventory.map((inv) => {
-        const basePrice = inv.product.basePrice;
-        const currentPrice = Number(inv.currentPrice);
-        const surgeMultiplier =
-          basePrice > 0
-            ? parseFloat((currentPrice / basePrice).toFixed(4))
-            : 1.0;
+      const storeAgg = await Promise.all(
+        inventory.map(async (inv) => {
+          const basePrice = inv.product.basePrice;
+          const currentPrice = Number(inv.currentPrice);
+          const surgeMultiplier =
+            basePrice > 0
+              ? parseFloat((currentPrice / basePrice).toFixed(4))
+              : 1.0;
+          const confidence = confidenceByProduct.get(inv.productId) ?? 0;
 
-        return {
-          productId: inv.productId,
-          productName: inv.product.name,
-          sku: inv.product.sku,
-          basePrice,
-          currentPrice,
-          surgeMultiplier,
-          confidence: confidenceByProduct.get(inv.productId) ?? 0,
-          stockQuantity: inv.quantityOnHand,
-          stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
-          updatedAt: inv.updatedAt.toISOString(),
-        };
-      });
+          // --- Epsilon-skip cached Gemini explanation ---
+          let explanation: string | null = null;
+          const cacheKey = CacheKeys.explanation(storeId, inv.productId);
+
+          try {
+            const cachedRaw = await redis.get(cacheKey);
+            const cached = cachedRaw
+              ? (JSON.parse(cachedRaw) as {
+                  explanation: string;
+                  lastPrice: number;
+                })
+              : null;
+
+            if (
+              cached &&
+              Math.abs(cached.lastPrice - currentPrice) < EXPLANATION_EPSILON
+            ) {
+              explanation = cached.explanation;
+            } else {
+              const generated = await generatePriceExplanation({
+                productName: inv.product.name,
+                storeName: store?.name ?? storeId,
+                basePrice,
+                currentPrice,
+                surgeMultiplier,
+                confidence,
+              });
+
+              if (generated) {
+                explanation = generated;
+                await redis.set(
+                  cacheKey,
+                  JSON.stringify({
+                    explanation: generated,
+                    lastPrice: currentPrice,
+                  }),
+                );
+              } else if (cached) {
+                // Gemini failed this round — fall back to stale cached value rather than nothing
+                explanation = cached.explanation;
+              }
+            }
+          } catch (err) {
+            console.error(
+              `[DemandLoop] Explanation cache error for ${inv.productId}:`,
+              err,
+            );
+          }
+
+          return {
+            productId: inv.productId,
+            productName: inv.product.name,
+            sku: inv.product.sku,
+            basePrice,
+            currentPrice,
+            surgeMultiplier,
+            confidence,
+            explanation,
+            stockQuantity: inv.quantityOnHand,
+            stockStatus: deriveStockStatus(
+              inv.quantityOnHand,
+              inv.reorderLevel,
+            ),
+            updatedAt: inv.updatedAt.toISOString(),
+          };
+        }),
+      );
 
       await redis.setex(
         CacheKeys.storePrice(storeId),

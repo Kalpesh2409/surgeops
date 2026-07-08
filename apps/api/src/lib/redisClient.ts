@@ -40,4 +40,6 @@ export const CacheKeys = {
   storePrice: (storeId: string) => `store:${storeId}:prices`,
   productPrice: (storeId: string, productId: string) =>
     `price:${storeId}:${productId}`,
+  explanation: (storeId: string, productId: string) =>
+    `explanation:${storeId}:${productId}`,
 };
