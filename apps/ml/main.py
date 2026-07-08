@@ -13,6 +13,7 @@ app = FastAPI(title="SurgeOps ML Service")
 model = joblib.load("model.pkl")
 store_encoder = joblib.load("store_encoder.pkl")
 product_encoder = joblib.load("product_encoder.pkl")
+avg_demand = joblib.load("avg_demand.pkl")
 
 class PredictRequest(BaseModel):
     store_id: str
@@ -35,10 +36,24 @@ def compute_confidence(tree_predictions: np.ndarray, mean_prediction: float) -> 
     [0.3, 0.95] so we never claim near-certainty or near-zero confidence.
     """
     std_dev = float(np.std(tree_predictions))
-    # Avoid division by zero for near-zero demand predictions
     coefficient_of_variation = std_dev / (mean_prediction + 0.5)
     raw_confidence = 1.0 - coefficient_of_variation
     return round(max(0.3, min(0.95, raw_confidence)), 4)
+
+def compute_demand_ratio(predicted_demand: float, store_id: str, product_id: str) -> float:
+    """
+    Express predicted demand as a ratio relative to this specific
+    store+product's own historical average demand (from training data).
+    A ratio of 1.0 means "predicted demand is exactly normal for this item".
+    A ratio of 2.0 means "predicted demand is double what's normal here".
+
+    Falls back to a ratio of 1.0 (i.e. "assume normal") if this store+product
+    combination wasn't present in training data at all.
+    """
+    baseline = avg_demand.get((store_id, product_id))
+    if baseline is None or baseline <= 0:
+        return 1.0
+    return round(predicted_demand / baseline, 4)
 
 @app.post("/predict")
 def predict(req: PredictRequest):
@@ -66,14 +81,16 @@ def predict(req: PredictRequest):
 
     predicted_demand = model.predict(X)[0]
 
-    # Collect each individual tree's prediction to measure ensemble agreement
     tree_predictions = np.array([tree.predict(X)[0] for tree in model.estimators_])
     confidence = compute_confidence(tree_predictions, float(predicted_demand))
+
+    demand_ratio = compute_demand_ratio(float(predicted_demand), req.store_id, req.product_id)
 
     return {
         "store_id": req.store_id,
         "product_id": req.product_id,
         "predicted_demand": round(float(predicted_demand), 2),
+        "demand_ratio": demand_ratio,
         "confidence": confidence,
         "hour_of_day": hour_of_day,
         "day_of_week": day_of_week,
