@@ -10,9 +10,15 @@ import { TrafficSimulator } from "@/components/TrafficSimulator";
 import { MlComparisonPanel } from "@/components/MlComparisonPanel";
 
 export default function App() {
-  const [storeId, setStoreId] = useState("store-mumbai-bandra");
+  const [storeId, setStoreId] = useState(
+    () => localStorage.getItem("surgeops-selected-store") || "store-mumbai-bandra"
+  );
   const { prices, inventory, status, lastUpdated, events } = usePriceStream(storeId);
   const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    localStorage.setItem("surgeops-selected-store", storeId);
+  }, [storeId]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);

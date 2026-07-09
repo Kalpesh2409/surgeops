@@ -11,7 +11,7 @@ let highWaterMark: Date = new Date(0); // deduplication cursor
 
 const POLL_INTERVAL_MS = 15_000;
 const EXPLANATION_EPSILON = 0.5; // ₹ — skip Gemini call if price hasn't moved beyond this
-const MAX_GEMINI_CALLS_PER_TICK = 4; // stay safely under free-tier 5 RPM limit
+const MAX_GEMINI_CALLS_PER_TICK = 1; // 4 ticks/min × 1 call = 4/min, safely under 5 RPM
 
 let geminiCallsUsedThisTick = 0;
 
