@@ -11,9 +11,14 @@ let highWaterMark: Date = new Date(0); // deduplication cursor
 
 const POLL_INTERVAL_MS = 15_000;
 const EXPLANATION_EPSILON = 0.5; // ₹ — skip Gemini call if price hasn't moved beyond this
+const MAX_GEMINI_CALLS_PER_TICK = 4; // stay safely under free-tier 5 RPM limit
+
+let geminiCallsUsedThisTick = 0;
 
 async function tick(): Promise<void> {
   try {
+    geminiCallsUsedThisTick = 0; // reset budget for this tick
+
     // --- Fetch new DemandEvents since last high-water mark ---
     const newEvents = await prisma.demandEvent.findMany({
       where: { recordedAt: { gt: highWaterMark } },
@@ -103,7 +108,7 @@ async function tick(): Promise<void> {
               : 1.0;
           const confidence = confidenceByProduct.get(inv.productId) ?? 0;
 
-          // --- Epsilon-skip cached Gemini explanation ---
+          // --- Epsilon-skip cached Gemini explanation, rate-limited per tick ---
           let explanation: string | null = null;
           const cacheKey = CacheKeys.explanation(storeId, inv.productId);
 
@@ -121,7 +126,11 @@ async function tick(): Promise<void> {
               Math.abs(cached.lastPrice - currentPrice) < EXPLANATION_EPSILON
             ) {
               explanation = cached.explanation;
+            } else if (geminiCallsUsedThisTick >= MAX_GEMINI_CALLS_PER_TICK) {
+              // Rate-limit budget exhausted this tick — reuse stale cache if any, else skip
+              explanation = cached?.explanation ?? null;
             } else {
+              geminiCallsUsedThisTick++; // reserve the slot before awaiting
               const generated = await generatePriceExplanation({
                 productName: inv.product.name,
                 storeName: store?.name ?? storeId,

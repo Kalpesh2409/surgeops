@@ -40,6 +40,19 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
 
     const { name: productName, sku, basePrice } = existing.product;
 
+    // Look up any previously-cached explanation (no TTL — persists across ticks)
+    let explanation: string | null = null;
+    try {
+      const cachedExplanationRaw = await redis.get(
+        CacheKeys.explanation(storeId, productId),
+      );
+      if (cachedExplanationRaw) {
+        explanation = (JSON.parse(cachedExplanationRaw) as { explanation: string }).explanation;
+      }
+    } catch (err) {
+      console.error(`[PriceWriter] Explanation lookup error for ${productId}:`, err);
+    }
+
     const delta = Math.abs(currentPrice - Number(existing.currentPrice));
     if (delta < EPSILON) {
       // Price change too small — still refresh cache TTL
@@ -51,6 +64,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
           surgeMultiplier,
           confidence,
           basePrice,
+          explanation,
           updatedAt: new Date().toISOString(),
           source: "epsilon-skip",
         }),
@@ -82,6 +96,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       surgeMultiplier,
       confidence,
       basePrice,
+      explanation,
       updatedAt: new Date().toISOString(),
     };
     const result = await redis.setex(
@@ -104,6 +119,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       currentPrice,
       surgeMultiplier,
       confidence,
+      explanation,
       updatedAt: new Date().toISOString(),
     });
   }

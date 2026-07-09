@@ -29,7 +29,7 @@ export async function generatePriceExplanation(
   if (!genAI) return null;
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = `You are explaining a dynamic pricing decision to a quick-commerce store manager in India, in one short plain-English sentence (max 25 words). No jargon like "ML baseline", "surge multiplier", or "confidence score" — describe it the way you'd explain it to a non-technical person.
 

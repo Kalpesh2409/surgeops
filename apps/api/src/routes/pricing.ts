@@ -53,25 +53,47 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
       latestSuggestions.map((s) => [s.productId, s.confidence]),
     );
 
-    const prices = inventory.map((inv) => {
-      const basePrice = inv.product.basePrice;
-      const currentPrice = Number(inv.currentPrice);
-      const surgeMultiplier =
-        basePrice > 0 ? parseFloat((currentPrice / basePrice).toFixed(4)) : 1.0;
+    const prices = await Promise.all(
+      inventory.map(async (inv) => {
+        const basePrice = inv.product.basePrice;
+        const currentPrice = Number(inv.currentPrice);
+        const surgeMultiplier =
+          basePrice > 0
+            ? parseFloat((currentPrice / basePrice).toFixed(4))
+            : 1.0;
 
-      return {
-        productId: inv.productId,
-        productName: inv.product.name,
-        sku: inv.product.sku,
-        basePrice,
-        currentPrice,
-        surgeMultiplier,
-        confidence: confidenceByProduct.get(inv.productId) ?? 0,
-        stockQuantity: inv.quantityOnHand,
-        stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
-        updatedAt: inv.updatedAt.toISOString(),
-      };
-    });
+        let explanation: string | null = null;
+        try {
+          const cachedExplanationRaw = await redis.get(
+            CacheKeys.explanation(storeId, inv.productId),
+          );
+          if (cachedExplanationRaw) {
+            explanation = (
+              JSON.parse(cachedExplanationRaw) as { explanation: string }
+            ).explanation;
+          }
+        } catch (err) {
+          console.error(
+            `[Pricing] Explanation lookup error for ${inv.productId}:`,
+            err,
+          );
+        }
+
+        return {
+          productId: inv.productId,
+          productName: inv.product.name,
+          sku: inv.product.sku,
+          basePrice,
+          currentPrice,
+          surgeMultiplier,
+          confidence: confidenceByProduct.get(inv.productId) ?? 0,
+          explanation,
+          stockQuantity: inv.quantityOnHand,
+          stockStatus: deriveStockStatus(inv.quantityOnHand, inv.reorderLevel),
+          updatedAt: inv.updatedAt.toISOString(),
+        };
+      }),
+    );
 
     // Warm the cache after DB fallback
     await redis.setex(cacheKey, 30, JSON.stringify(prices));

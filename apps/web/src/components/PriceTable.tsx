@@ -8,6 +8,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Info } from 'lucide-react';
 import type { PriceEntry } from '@/hooks/usePriceStream';
 
 interface PriceTableProps {
@@ -76,7 +82,21 @@ export function PriceTable({ prices }: PriceTableProps) {
             <TableCell className="font-medium">{entry.productName}</TableCell>
             <TableCell className="text-muted-foreground">{entry.sku}</TableCell>
             <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
-            <TableCell>₹{entry.surgePrice.toFixed(2)}</TableCell>
+            <TableCell>
+              <div className="flex items-center gap-1.5">
+                <span>₹{entry.surgePrice.toFixed(2)}</span>
+                {entry.explanation && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>{entry.explanation}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </TableCell>
             <TableCell>{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
             <TableCell className="text-muted-foreground text-sm">{getReason(entry.surgeMultiplier)}</TableCell>
            <TableCell>

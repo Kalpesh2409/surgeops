@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+type ConnectionStatus = "connecting" | "connected" | "disconnected";
+
 export interface PriceEntry {
   productId: string;
   productName: string;
@@ -8,6 +10,7 @@ export interface PriceEntry {
   surgePrice: number;
   surgeMultiplier: number;
   confidence: number;
+  explanation: string | null;
   updatedAt: string;
 }
 
@@ -36,7 +39,7 @@ export interface PriceEvent {
 interface UsePriceStreamResult {
   prices: Record<string, PriceEntry>;
   inventory: Record<string, InventoryItem>;
-  status: "connecting" | "connected" | "disconnected";
+  status: ConnectionStatus;
   lastUpdated: string | null;
   events: PriceEvent[];
 }
@@ -44,9 +47,7 @@ interface UsePriceStreamResult {
 export function usePriceStream(storeId: string): UsePriceStreamResult {
   const [prices, setPrices] = useState<Record<string, PriceEntry>>({});
   const [inventory, setInventory] = useState<Record<string, InventoryItem>>({});
-  const [status, setStatus] = useState<
-    "connecting" | "connected" | "disconnected"
-  >("connecting");
+  const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [events, setEvents] = useState<PriceEvent[]>([]);
   const esRef = useRef<EventSource | null>(null);
@@ -74,6 +75,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
             surgePrice: (p as any).currentPrice,
             surgeMultiplier: (p as any).surgeMultiplier ?? 1.0,
             confidence: (p as any).confidence ?? 0,
+            explanation: (p as any).explanation ?? null,
             updatedAt: p.updatedAt,
           };
         });
@@ -111,6 +113,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
         surgePrice: raw.currentPrice,
         surgeMultiplier: raw.surgeMultiplier,
         confidence: raw.confidence,
+        explanation: raw.explanation ?? null,
         updatedAt: raw.updatedAt ?? raw.ts,
       };
       setLastUpdated(new Date().toISOString());
