@@ -8,6 +8,7 @@ import { RecentEvents } from "@/components/RecentEvents";
 import { InventoryPanel } from "@/components/InventoryPanel";
 import { TrafficSimulator } from "@/components/TrafficSimulator";
 import { MlComparisonPanel } from "@/components/MlComparisonPanel";
+import { ZoneCard } from "@/components/ZoneCard";
 
 export default function App() {
   const [storeId, setStoreId] = useState(
@@ -78,6 +79,9 @@ export default function App() {
             </div>
           </div>
         </div>
+        
+       {/* Zone Heat Card */}
+        <ZoneCard prices={prices} />
 
         {/* Price Table */}
         <Card>
