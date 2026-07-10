@@ -137,3 +137,23 @@
     @apply font-sans;
     }
 }
+
+@keyframes price-glow-up {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  25% { box-shadow: 0 0 14px 3px color-mix(in oklch, var(--status-surge) 55%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@keyframes price-glow-down {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  25% { box-shadow: 0 0 14px 3px color-mix(in oklch, var(--status-normal) 55%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.glow-up {
+  animation: price-glow-up 1300ms ease-out;
+}
+
+.glow-down {
+  animation: price-glow-down 1300ms ease-out;
+}

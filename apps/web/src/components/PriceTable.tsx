@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Table,
   TableBody,
@@ -38,14 +38,34 @@ function getConfidenceColor(multiplier: number) {
   return 'bg-green-500';
 }
 
+type GlowDirection = 'up' | 'down';
+
 export function PriceTable({ prices }: PriceTableProps) {
-  const [flashIds, setFlashIds] = useState<Set<string>>(new Set());
+  const prevPricesRef = useRef<Record<string, number>>({});
+  const [glowMap, setGlowMap] = useState<Record<string, GlowDirection>>({});
 
   useEffect(() => {
-    const ids = Object.keys(prices);
-    if (ids.length === 0) return;
-    setFlashIds(new Set(ids));
-    const timer = setTimeout(() => setFlashIds(new Set()), 800);
+    const prevPrices = prevPricesRef.current;
+    const newGlows: Record<string, GlowDirection> = {};
+
+    Object.values(prices).forEach((entry) => {
+      const prev = prevPrices[entry.productId];
+      if (prev !== undefined && prev !== entry.surgePrice) {
+        newGlows[entry.productId] = entry.surgePrice > prev ? 'up' : 'down';
+      }
+    });
+
+    // Always update the ref so next diff compares against latest known prices
+    const nextPrices: Record<string, number> = {};
+    Object.values(prices).forEach((entry) => {
+      nextPrices[entry.productId] = entry.surgePrice;
+    });
+    prevPricesRef.current = nextPrices;
+
+    if (Object.keys(newGlows).length === 0) return;
+
+    setGlowMap(newGlows);
+    const timer = setTimeout(() => setGlowMap({}), 1300);
     return () => clearTimeout(timer);
   }, [prices]);
 
@@ -74,49 +94,52 @@ export function PriceTable({ prices }: PriceTableProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {entries.map((entry) => (
-          <TableRow
-            key={entry.productId}
-            className={flashIds.has(entry.productId) ? 'bg-yellow-500/20 transition-colors duration-700' : ''}
-          >
-            <TableCell className="font-medium">{entry.productName}</TableCell>
-            <TableCell className="text-muted-foreground">{entry.sku}</TableCell>
-            <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
-            <TableCell>
-              <div className="flex items-center gap-1.5">
-                <span>₹{entry.surgePrice.toFixed(2)}</span>
-                {entry.explanation && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-xs">
-                      <p>{entry.explanation}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
-              </div>
-            </TableCell>
-            <TableCell>{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
-            <TableCell className="text-muted-foreground text-sm">{getReason(entry.surgeMultiplier)}</TableCell>
-           <TableCell>
-              <div className="flex items-center gap-2">
-                <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
-                  <div
-                    className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
-                    style={{ width: `${Math.max(4, Math.round(entry.confidence * 100))}%` }}
-                  />
+        {entries.map((entry) => {
+          const glow = glowMap[entry.productId];
+          return (
+            <TableRow
+              key={entry.productId}
+              className={glow === 'up' ? 'glow-up' : glow === 'down' ? 'glow-down' : ''}
+            >
+              <TableCell className="font-medium">{entry.productName}</TableCell>
+              <TableCell className="text-muted-foreground">{entry.sku}</TableCell>
+              <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <span>₹{entry.surgePrice.toFixed(2)}</span>
+                  {entry.explanation && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>{entry.explanation}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                 </div>
-                <span className="text-xs text-muted-foreground w-8">
-                  {Math.round(entry.confidence * 100)}%
-                </span>
-              </div>
-            </TableCell>
-            <TableCell className="text-muted-foreground text-xs">
-              {new Date(entry.updatedAt).toLocaleTimeString()}
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell>{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
+              <TableCell className="text-muted-foreground text-sm">{getReason(entry.surgeMultiplier)}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
+                    <div
+                      className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
+                      style={{ width: `${Math.max(4, Math.round(entry.confidence * 100))}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-8">
+                    {Math.round(entry.confidence * 100)}%
+                  </span>
+                </div>
+              </TableCell>
+              <TableCell className="text-muted-foreground text-xs">
+                {new Date(entry.updatedAt).toLocaleTimeString()}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
