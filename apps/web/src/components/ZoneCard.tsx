@@ -7,9 +7,9 @@ interface ZoneCardProps {
 }
 
 const STATE_STYLES: Record<ZoneHeatState, { label: string; dot: string; text: string }> = {
-  normal: { label: 'Normal', dot: 'bg-green-500', text: 'text-green-600' },
-  elevated: { label: 'Elevated', dot: 'bg-yellow-500', text: 'text-yellow-600' },
-  surge: { label: 'Surge', dot: 'bg-red-500', text: 'text-red-600' },
+  normal: { label: 'Normal', dot: 'bg-status-normal', text: 'text-status-normal' },
+  elevated: { label: 'Elevated', dot: 'bg-status-elevated', text: 'text-status-elevated' },
+  surge: { label: 'Surge', dot: 'bg-status-surge', text: 'text-status-surge' },
 };
 
 export function ZoneCard({ prices }: ZoneCardProps) {
