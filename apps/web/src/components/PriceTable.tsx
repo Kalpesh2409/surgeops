@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Info } from 'lucide-react';
 import type { PriceEntry } from '@/hooks/usePriceStream';
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 
 interface PriceTableProps {
   prices: Record<string, PriceEntry>;
@@ -38,6 +39,11 @@ function getConfidenceColor(multiplier: number) {
   return 'bg-green-500';
 }
 
+function AnimatedPrice({ value }: { value: number }) {
+  const animated = useAnimatedNumber(value, 600);
+  return <span>₹{animated.toFixed(2)}</span>;
+}
+
 type GlowDirection = 'up' | 'down';
 
 export function PriceTable({ prices }: PriceTableProps) {
@@ -55,7 +61,6 @@ export function PriceTable({ prices }: PriceTableProps) {
       }
     });
 
-    // Always update the ref so next diff compares against latest known prices
     const nextPrices: Record<string, number> = {};
     Object.values(prices).forEach((entry) => {
       nextPrices[entry.productId] = entry.surgePrice;
@@ -106,7 +111,7 @@ export function PriceTable({ prices }: PriceTableProps) {
               <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
-                  <span>₹{entry.surgePrice.toFixed(2)}</span>
+                  <AnimatedPrice value={entry.surgePrice} />
                   {entry.explanation && (
                     <Tooltip>
                       <TooltipTrigger asChild>
