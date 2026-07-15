@@ -25,9 +25,9 @@ const GLOW_HOLD_MS = 2000;
 const ROLL_DURATION_MS = 1000;
 
 function getSurgeBadge(multiplier: number) {
-  if (multiplier >= 1.5) return <Badge variant="destructive">{multiplier.toFixed(2)}x</Badge>;
-  if (multiplier >= 1.1) return <Badge className="bg-amber-500 text-white">{multiplier.toFixed(2)}x</Badge>;
-  return <Badge className="bg-green-500 text-white">{multiplier.toFixed(2)}x</Badge>;
+  if (multiplier >= 1.5) return <Badge className="bg-status-surge text-white">{multiplier.toFixed(2)}x</Badge>;
+  if (multiplier >= 1.1) return <Badge className="bg-status-elevated text-white">{multiplier.toFixed(2)}x</Badge>;
+  return <Badge className="bg-status-normal text-white">{multiplier.toFixed(2)}x</Badge>;
 }
 
 function getReason(multiplier: number) {
@@ -37,9 +37,9 @@ function getReason(multiplier: number) {
 }
 
 function getConfidenceColor(multiplier: number) {
-  if (multiplier >= 1.5) return 'bg-red-500';
-  if (multiplier >= 1.1) return 'bg-amber-500';
-  return 'bg-green-500';
+  if (multiplier >= 1.5) return 'bg-status-surge';
+  if (multiplier >= 1.1) return 'bg-status-elevated';
+  return 'bg-status-normal';
 }
 
 function AnimatedPrice({ value }: { value: number }) {
