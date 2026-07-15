@@ -17,7 +17,7 @@ export function ZoneCard({ prices }: ZoneCardProps) {
   const style = STATE_STYLES[state];
 
   return (
-    <Card>
+    <Card className={state === 'surge' ? 'surge-heartbeat' : ''}>
       <CardHeader>
         <CardTitle className="text-base font-semibold">Zone Demand Pressure</CardTitle>
       </CardHeader>

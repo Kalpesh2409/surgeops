@@ -157,3 +157,13 @@
 .glow-down {
   animation: price-glow-down 1300ms ease-out;
 }
+
+@keyframes surge-heartbeat {
+  0% { box-shadow: 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 16px 4px color-mix(in oklch, var(--status-surge) 28%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.surge-heartbeat {
+  animation: surge-heartbeat 2000ms ease-in-out infinite;
+}
