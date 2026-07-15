@@ -21,6 +21,9 @@ interface PriceTableProps {
   prices: Record<string, PriceEntry>;
 }
 
+const GLOW_HOLD_MS = 2000;
+const ROLL_DURATION_MS = 1000;
+
 function getSurgeBadge(multiplier: number) {
   if (multiplier >= 1.5) return <Badge variant="destructive">{multiplier.toFixed(2)}x</Badge>;
   if (multiplier >= 1.1) return <Badge className="bg-amber-500 text-white">{multiplier.toFixed(2)}x</Badge>;
@@ -40,38 +43,76 @@ function getConfidenceColor(multiplier: number) {
 }
 
 function AnimatedPrice({ value }: { value: number }) {
-  const animated = useAnimatedNumber(value, 600);
+  const animated = useAnimatedNumber(value, ROLL_DURATION_MS);
   return <span>₹{animated.toFixed(2)}</span>;
 }
 
 type GlowDirection = 'up' | 'down';
 
+interface QueueItem {
+  productId: string;
+  direction: GlowDirection;
+  target: number;
+}
+
 export function PriceTable({ prices }: PriceTableProps) {
   const prevPricesRef = useRef<Record<string, number>>({});
+  const queueRef = useRef<QueueItem[]>([]);
+  const processingRef = useRef(false);
   const [glowMap, setGlowMap] = useState<Record<string, GlowDirection>>({});
+  const [displayPrices, setDisplayPrices] = useState<Record<string, number>>({});
+
+  function processNext() {
+    if (processingRef.current) return;
+    const next = queueRef.current.shift();
+    if (!next) return;
+
+    processingRef.current = true;
+    setGlowMap({ [next.productId]: next.direction });
+
+    setTimeout(() => {
+      setDisplayPrices((d) => ({ ...d, [next.productId]: next.target }));
+
+      setTimeout(() => {
+        setGlowMap({});
+        processingRef.current = false;
+        processNext();
+      }, ROLL_DURATION_MS);
+    }, GLOW_HOLD_MS);
+  }
 
   useEffect(() => {
     const prevPrices = prevPricesRef.current;
-    const newGlows: Record<string, GlowDirection> = {};
-
-    Object.values(prices).forEach((entry) => {
-      const prev = prevPrices[entry.productId];
-      if (prev !== undefined && prev !== entry.surgePrice) {
-        newGlows[entry.productId] = entry.surgePrice > prev ? 'up' : 'down';
-      }
-    });
+    const isFirstRun = Object.keys(prevPrices).length === 0;
 
     const nextPrices: Record<string, number> = {};
     Object.values(prices).forEach((entry) => {
       nextPrices[entry.productId] = entry.surgePrice;
     });
+
+    if (isFirstRun) {
+      prevPricesRef.current = nextPrices;
+      setDisplayPrices(nextPrices);
+      return;
+    }
+
+    Object.values(prices).forEach((entry) => {
+      const prev = prevPrices[entry.productId];
+      if (prev !== undefined && prev !== entry.surgePrice) {
+        const direction: GlowDirection = entry.surgePrice > prev ? 'up' : 'down';
+        // Dedupe: if this product is already queued, replace with latest target
+        const existingIndex = queueRef.current.findIndex((q) => q.productId === entry.productId);
+        const item: QueueItem = { productId: entry.productId, direction, target: entry.surgePrice };
+        if (existingIndex >= 0) {
+          queueRef.current[existingIndex] = item;
+        } else {
+          queueRef.current.push(item);
+        }
+      }
+    });
+
     prevPricesRef.current = nextPrices;
-
-    if (Object.keys(newGlows).length === 0) return;
-
-    setGlowMap(newGlows);
-    const timer = setTimeout(() => setGlowMap({}), 1300);
-    return () => clearTimeout(timer);
+    processNext();
   }, [prices]);
 
   const entries = Object.values(prices);
@@ -101,6 +142,7 @@ export function PriceTable({ prices }: PriceTableProps) {
       <TableBody>
         {entries.map((entry) => {
           const glow = glowMap[entry.productId];
+          const displayValue = displayPrices[entry.productId] ?? entry.surgePrice;
           return (
             <TableRow
               key={entry.productId}
@@ -111,7 +153,7 @@ export function PriceTable({ prices }: PriceTableProps) {
               <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
               <TableCell>
                 <div className="flex items-center gap-1.5">
-                  <AnimatedPrice value={entry.surgePrice} />
+                  <AnimatedPrice value={displayValue} />
                   {entry.explanation && (
                     <Tooltip>
                       <TooltipTrigger asChild>

@@ -151,11 +151,11 @@
 }
 
 .glow-up {
-  animation: price-glow-up 1300ms ease-out;
+  animation: price-glow-up 2000ms ease-out;
 }
 
 .glow-down {
-  animation: price-glow-down 1300ms ease-out;
+  animation: price-glow-down 2000ms ease-out;
 }
 
 @keyframes surge-heartbeat {
