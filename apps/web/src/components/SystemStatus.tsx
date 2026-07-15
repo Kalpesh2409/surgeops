@@ -11,7 +11,7 @@ interface ServiceStatus {
 
 function StatusDot({ state }: { state: ServiceState }) {
   const color =
-    state === 'healthy' ? 'bg-green-500' : state === 'down' ? 'bg-red-500' : 'bg-yellow-500';
+    state === 'healthy' ? 'bg-status-normal' : state === 'down' ? 'bg-status-surge' : 'bg-status-elevated';
   const label =
     state === 'healthy' ? 'Healthy' : state === 'down' ? 'Down' : 'Checking...';
   return (
