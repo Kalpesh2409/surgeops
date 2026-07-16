@@ -105,11 +105,11 @@ export default function App() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
             <InventoryPanel inventory={inventory} />
-            <SystemStatus />
+            <RecentEvents events={events} />
           </div>
           <div className="space-y-6">
             <TrafficSimulator storeId={storeId} />
-            <RecentEvents events={events} />
+            <SystemStatus />
           </div>
         </div>
       </div>
