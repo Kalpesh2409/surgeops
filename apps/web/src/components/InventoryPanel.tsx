@@ -3,9 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import type { InventoryItem } from "@/hooks/usePriceStream";
 
 const STATUS_STYLES: Record<InventoryItem["status"], string> = {
-  HEALTHY: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  LOW_STOCK: "bg-amber-500/15 text-amber-400 border-amber-500/30",
-  CRITICAL: "bg-red-500/15 text-red-400 border-red-500/30",
+  HEALTHY: "bg-status-normal/15 text-status-normal border-status-normal/30",
+  LOW_STOCK: "bg-status-elevated/15 text-status-elevated border-status-elevated/30",
+  CRITICAL: "bg-status-surge/15 text-status-surge border-status-surge/30",
 };
 
 const STATUS_LABELS: Record<InventoryItem["status"], string> = {
@@ -15,9 +15,9 @@ const STATUS_LABELS: Record<InventoryItem["status"], string> = {
 };
 
 const BAR_COLOR: Record<InventoryItem["status"], string> = {
-  HEALTHY: "bg-emerald-500",
-  LOW_STOCK: "bg-amber-500",
-  CRITICAL: "bg-red-500",
+  HEALTHY: "bg-status-normal",
+  LOW_STOCK: "bg-status-elevated",
+  CRITICAL: "bg-status-surge",
 };
 
 export function InventoryPanel({
