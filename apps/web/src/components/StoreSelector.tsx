@@ -1,16 +1,18 @@
+import { Fragment } from 'react';
 import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 
 const STORES = [
-  { id: 'store-mumbai-bandra', name: 'SurgeOps Bandra West' },
-  { id: 'store-pune-kothrud', name: 'SurgeOps Kothrud' },
-  { id: 'store-bangalore-koramangala', name: 'SurgeOps Koramangala' },
-  { id: 'store-delhi-noida', name: 'SurgeOps Noida Sector 18' },
+  { id: 'store-mumbai-bandra', name: 'Mumbai - Bandra West' },
+  { id: 'store-pune-kothrud', name: 'Pune - Kothrud' },
+  { id: 'store-bangalore-koramangala', name: 'Bangalore - Koramangala' },
+  { id: 'store-delhi-noida', name: 'Delhi - Noida Sector 18' },
 ];
 
 interface StoreSelectorProps {
@@ -27,10 +29,11 @@ export function StoreSelector({ value, onChange }: StoreSelectorProps) {
           <SelectValue placeholder="Select a store" />
         </SelectTrigger>
         <SelectContent>
-          {STORES.map((store) => (
-            <SelectItem key={store.id} value={store.id}>
-              {store.name}
-            </SelectItem>
+          {STORES.map((store, index) => (
+            <Fragment key={store.id}>
+              <SelectItem value={store.id}>{store.name}</SelectItem>
+              {index < STORES.length - 1 && <SelectSeparator />}
+            </Fragment>
           ))}
         </SelectContent>
       </Select>
