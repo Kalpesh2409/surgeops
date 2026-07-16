@@ -18,13 +18,13 @@ function getDeltaBadge(delta: number | null) {
   if (delta === null) return <Badge variant="outline">—</Badge>;
   if (delta > 0)
     return (
-      <Badge className="bg-amber-500 text-white">+₹{delta.toFixed(2)}</Badge>
+      <Badge className="bg-status-elevated text-white">+₹{delta.toFixed(2)}</Badge>
     );
   if (delta < 0)
     return (
       <Badge className="bg-blue-500 text-white">₹{delta.toFixed(2)}</Badge>
     );
-  return <Badge className="bg-green-500 text-white">₹0.00</Badge>;
+  return <Badge className="bg-status-normal text-white">₹0.00</Badge>;
 }
 
 export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
@@ -48,7 +48,7 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
             Loading comparison data...
           </div>
         ) : error ? (
-          <div className="text-center text-red-400 py-12">Error: {error}</div>
+          <div className="text-center text-status-surge py-12">Error: {error}</div>
         ) : comparison.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             No comparison data yet. Select a store to begin.

@@ -30,7 +30,7 @@ const LOAD_BUTTONS: ButtonConfig[] = [
     label: "+1000 Users",
     sublabel: "Heavy surge event",
     multiplier: 3.5,
-    icon: <Flame className="w-4 h-4 text-red-400" />,
+    icon: <Flame className="w-4 h-4 text-status-surge" />,
   },
 ];
 
@@ -91,7 +91,7 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Zap className="w-4 h-4 text-amber-400" />
+          <Zap className="w-4 h-4 text-status-elevated" />
           Traffic Simulator
         </CardTitle>
         <p className="text-xs text-muted-foreground">
@@ -124,13 +124,13 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
         <button
           onClick={handleDdosClick}
           disabled={anyRunning}
-          className="w-full flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-left transition-colors hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center gap-3 rounded-lg border border-status-surge/30 bg-status-surge/10 px-4 py-3 text-left transition-colors hover:bg-status-surge/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="flex items-center justify-center w-6">
-            <AlertTriangle className="w-4 h-4 text-red-400" />
+            <AlertTriangle className="w-4 h-4 text-status-surge" />
           </span>
           <span>
-            <span className="block text-sm font-semibold text-red-400">
+            <span className="block text-sm font-semibold text-status-surge">
               {ddosRunning
                 ? `Simulating… ${ddosProgress}/${DDOS_MULTIPLIERS.length}`
                 : "DDoS Simulation"}
