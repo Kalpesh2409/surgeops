@@ -12,9 +12,11 @@ import { ZoneCard } from "@/components/ZoneCard";
 
 export default function App() {
   const [storeId, setStoreId] = useState(
-    () => localStorage.getItem("surgeops-selected-store") || "store-mumbai-bandra"
+    () =>
+      localStorage.getItem("surgeops-selected-store") || "store-mumbai-bandra",
   );
-  const { prices, inventory, status, lastUpdated, events } = usePriceStream(storeId);
+  const { prices, inventory, status, lastUpdated, events } =
+    usePriceStream(storeId);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -40,7 +42,9 @@ export default function App() {
               S
             </div>
             <div>
-              <h1 className="text-xl font-bold leading-tight">SurgeOps</h1>
+              <h1 className="text-xl font-bold leading-tight text-muted-foreground">
+                SurgeOps
+              </h1>
               <p className="text-xs text-muted-foreground leading-tight">
                 Dark Store Pricing Engine
               </p>
@@ -79,8 +83,8 @@ export default function App() {
             </div>
           </div>
         </div>
-        
-       {/* Zone Heat Card */}
+
+        {/* Zone Heat Card */}
         <ZoneCard prices={prices} />
 
         {/* Price Table */}
