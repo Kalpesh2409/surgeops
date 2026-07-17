@@ -7,7 +7,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useMlComparison } from "@/hooks/useMlComparison";
 
 interface MlComparisonPanelProps {
@@ -36,11 +36,11 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
         <CardTitle className="text-base font-semibold">
           Live Price vs Pure ML Baseline
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <CardDescription className="text-xs">
           Comparing the actual live price (ML baseline + real-time surge,
           guardrail-clamped) against the model's raw baseline prediction with no
           surge applied
-        </p>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         {loading && comparison.length === 0 ? (

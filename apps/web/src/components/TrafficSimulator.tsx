@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Zap, Flame, AlertTriangle } from "lucide-react";
 
 type ButtonConfig = {
@@ -94,10 +94,10 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
           <Zap className="w-4 h-4 text-status-elevated" />
           Traffic Simulator
         </CardTitle>
-        <p className="text-xs text-muted-foreground">
+        <CardDescription className="text-xs">
           Inject simulated order load into the selected zone and watch surge
           pricing react in real time.
-        </p>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {LOAD_BUTTONS.map((button) => (
