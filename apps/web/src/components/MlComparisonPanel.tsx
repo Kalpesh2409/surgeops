@@ -57,31 +57,31 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Base Price (₹)</TableHead>
-                <TableHead>Live Price (₹)</TableHead>
-                <TableHead>Pure ML Baseline (₹)</TableHead>
-                <TableHead>Surge Premium</TableHead>
-                <TableHead>ML Confidence</TableHead>
+                <TableHead className="text-center">Product</TableHead>
+                <TableHead className="text-center">SKU</TableHead>
+                <TableHead className="text-center">Base Price (₹)</TableHead>
+                <TableHead className="text-center">Live Price (₹)</TableHead>
+                <TableHead className="text-center">Pure ML Baseline (₹)</TableHead>
+                <TableHead className="text-center">Surge Premium</TableHead>
+                <TableHead className="text-center">ML Confidence</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {comparison.map((entry) => (
                 <TableRow key={entry.productId}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium text-center">
                     {entry.productName}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground text-center">
                     {entry.sku}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="text-muted-foreground text-center">
                     ₹{entry.basePrice.toFixed(2)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     ₹{entry.rulesEngine.suggestedPrice.toFixed(2)}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="text-center">
                     {entry.ml ? (
                       `₹${entry.ml.suggestedPrice.toFixed(2)}`
                     ) : (
@@ -90,10 +90,10 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell>{getDeltaBadge(entry.delta)}</TableCell>
+                  <TableCell className="text-center">{getDeltaBadge(entry.delta)}</TableCell>
                   <TableCell>
                     {entry.ml ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center gap-2">
                         <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
                           <div
                             className="h-full bg-teal-500"
