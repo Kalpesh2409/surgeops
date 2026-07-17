@@ -41,40 +41,42 @@ export function InventoryPanel({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading inventory…</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                <th className="pb-2 font-medium">PRODUCT</th>
-                <th className="pb-2 font-medium">AVAILABLE</th>
-                <th className="pb-2 font-medium">LEVEL</th>
-                <th className="pb-2 font-medium">STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.productId} className="border-b border-border/50 last:border-0">
-                  <td className="py-2 font-medium">{item.name}</td>
-                  <td className="py-2 text-muted-foreground">{item.quantityOnHand}</td>
-                  <td className="py-2">
-                    <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${BAR_COLOR[item.status]}`}
-                        style={{ width: `${item.levelPercent}%` }}
-                      />
-                    </div>
-                  </td>
-                  <td className="py-2">
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-semibold ${STATUS_STYLES[item.status]}`}
-                    >
-                      {STATUS_LABELS[item.status]}
-                    </Badge>
-                  </td>
+          <div className="max-h-[400px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                  <th className="pb-2 font-medium">PRODUCT</th>
+                  <th className="pb-2 font-medium">AVAILABLE</th>
+                  <th className="pb-2 font-medium">LEVEL</th>
+                  <th className="pb-2 font-medium">STATUS</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.productId} className="border-b border-border/50 last:border-0">
+                    <td className="py-2 font-medium">{item.name}</td>
+                    <td className="py-2 text-muted-foreground">{item.quantityOnHand}</td>
+                    <td className="py-2">
+                      <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${BAR_COLOR[item.status]}`}
+                          style={{ width: `${item.levelPercent}%` }}
+                        />
+                      </div>
+                    </td>
+                    <td className="py-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs font-semibold ${STATUS_STYLES[item.status]}`}
+                      >
+                        {STATUS_LABELS[item.status]}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </CardContent>
     </Card>
