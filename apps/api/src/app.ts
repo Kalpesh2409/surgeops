@@ -1,35 +1,40 @@
-/**
- * app.ts
- * Express application setup.
- * Session 4 addition: /simulator routes
- */
+// src/app.ts
+// Express app configuration, separated from server boot for testability.
+import cors from "cors";
+import express from "express";
 
-import express from 'express';
-import cors from 'cors';
-import { errorHandler } from './middleware/errorHandler';
-import { healthRouter } from './routes/health';
-import { storesRouter } from './routes/stores';
-import simulatorRouter from './routes/simulator';
-import pricingRouter from './routes/pricing';
+// Routes
+import { storesRouter as storeRoutes } from "./routes/stores";
+import simulatorRoutes from "./routes/simulator";
+import pricingRoutes from "./routes/pricing";
+import { healthRouter as healthRoutes } from "./routes/health";
+import streamRoutes from "./routes/stream";
+import inventoryRoutes from "./routes/inventory";
 
 const app = express();
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({ origin: "http://localhost:5173" }));
 app.use(express.json());
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-app.use('/health', healthRouter);
-app.use('/stores', storesRouter);
-app.use('/simulator', simulatorRouter);
-app.use('/pricing', pricingRouter);
+// ── Route registration ────────────────────────────────────────────────────────
+app.use("/health", healthRoutes); // GET /health  +  GET /health/redis
+app.use("/stores", storeRoutes);
+app.use("/simulator", simulatorRoutes);
+app.use("/pricing", pricingRoutes);
+app.use("/stream", streamRoutes);
+app.use("/inventory", inventoryRoutes);
 
-// ─── 404 ──────────────────────────────────────────────────────────────────────
-app.use((_req, res) => {
-  res.status(404).json({ success: false, error: 'Route not found' });
-});
+// ── Centralized error handler ─────────────────────────────────────────────────
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    console.error("[Error]", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  },
+);
 
-// ─── Error handler ────────────────────────────────────────────────────────────
-app.use(errorHandler);
-
-export default app;
+export { app };

@@ -1,10 +1,10 @@
 // src/index.ts
 // Session 6 patch: Redis graceful disconnect + health router registration
 // Session 14: wired mlSuggestionLoop into boot + shutdown alongside demandIngestionLoop.
-import cors from "cors";
+// Session 24: split Express app config into app.ts for testability.
 import "dotenv/config";
-import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { app } from "./app";
 import { startSimulator, stopSimulator } from "./services/orderSimulator";
 import {
   startDemandIngestionLoop,
@@ -16,40 +16,8 @@ import {
 } from "./services/mlSuggestionLoop";
 import { disconnectRedis } from "./lib/redisClient";
 
-// Routes
-import { storesRouter as storeRoutes } from "./routes/stores";
-import simulatorRoutes from "./routes/simulator";
-import pricingRoutes from "./routes/pricing";
-import { healthRouter as healthRoutes } from "./routes/health";
-import streamRoutes from "./routes/stream";
-import inventoryRoutes from "./routes/inventory";
-
-const app = express();
 const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || "4000", 10);
-
-app.use(cors({ origin: "http://localhost:5173" }));
-app.use(express.json());
-
-// ── Route registration ────────────────────────────────────────────────────────
-app.use("/health", healthRoutes); // GET /health  +  GET /health/redis
-app.use("/stores", storeRoutes);
-app.use("/simulator", simulatorRoutes);
-app.use("/pricing", pricingRoutes);
-app.use("/stream", streamRoutes);
-app.use("/inventory", inventoryRoutes);
-// ── Centralized error handler ─────────────────────────────────────────────────
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction,
-  ) => {
-    console.error("[Error]", err);
-    res.status(500).json({ error: err.message || "Internal server error" });
-  },
-);
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
@@ -73,6 +41,5 @@ async function shutdown(signal: string) {
   await prisma.$disconnect();
   process.exit(0);
 }
-
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
