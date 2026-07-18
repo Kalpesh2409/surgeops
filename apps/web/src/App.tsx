@@ -33,10 +33,10 @@ export default function App() {
     : null;
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-6 overflow-x-hidden">
       <div className="w-full space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold text-lg">
               S
@@ -51,7 +51,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <StoreSelector value={storeId} onChange={setStoreId} />
             <div className="flex items-center gap-2">
               <span className="relative flex h-2.5 w-2.5">
