@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "surgeops-api",
   "version": "0.1.0",
   "description": "SurgeOps backend API - Node.js + Express + TypeScript",
@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "lint": "oxlint"
   },
   "prisma": {
     "seed": "tsx prisma/seed/index.ts"
@@ -27,9 +28,11 @@
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.5",
     "@types/node": "^20.10.0",
+    "oxlint": "^1.74.0",
     "prisma": "^5.22.0",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.22.4",
     "typescript": "^5.3.3"
   }
 }
+
