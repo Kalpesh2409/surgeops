@@ -41,36 +41,40 @@ export function InventoryPanel({
         {items.length === 0 ? (
           <p className="text-sm text-muted-foreground">Loading inventory…</p>
         ) : (
-          <div className="max-h-[400px] overflow-y-auto">
-            <table className="w-full text-sm">
+          <div className="max-h-[400px] overflow-y-auto overflow-x-auto">
+            <table className="w-full text-sm min-w-[480px]">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b border-border">
-                  <th className="pb-2 font-medium">PRODUCT</th>
-                  <th className="pb-2 font-medium">AVAILABLE</th>
-                  <th className="pb-2 font-medium">LEVEL</th>
-                  <th className="pb-2 font-medium">STATUS</th>
+                  <th className="pb-2 font-medium whitespace-nowrap">PRODUCT</th>
+                  <th className="pb-2 font-medium text-center whitespace-nowrap">AVAILABLE</th>
+                  <th className="pb-2 font-medium text-center whitespace-nowrap">LEVEL</th>
+                  <th className="pb-2 font-medium text-center whitespace-nowrap">STATUS</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.productId} className="border-b border-border/50 last:border-0">
-                    <td className="py-2 font-medium">{item.name}</td>
-                    <td className="py-2 text-muted-foreground">{item.quantityOnHand}</td>
+                    <td className="py-2 font-medium whitespace-nowrap">{item.name}</td>
+                    <td className="py-2 text-muted-foreground text-center whitespace-nowrap">{item.quantityOnHand}</td>
                     <td className="py-2">
-                      <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${BAR_COLOR[item.status]}`}
-                          style={{ width: `${item.levelPercent}%` }}
-                        />
+                      <div className="flex items-center justify-center">
+                        <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${BAR_COLOR[item.status]}`}
+                            style={{ width: `${item.levelPercent}%` }}
+                          />
+                        </div>
                       </div>
                     </td>
                     <td className="py-2">
-                      <Badge
-                        variant="outline"
-                        className={`text-xs font-semibold ${STATUS_STYLES[item.status]}`}
-                      >
-                        {STATUS_LABELS[item.status]}
-                      </Badge>
+                      <div className="flex items-center justify-center">
+                        <Badge
+                          variant="outline"
+                          className={`text-xs font-semibold whitespace-nowrap ${STATUS_STYLES[item.status]}`}
+                        >
+                          {STATUS_LABELS[item.status]}
+                        </Badge>
+                      </div>
                     </td>
                   </tr>
                 ))}
