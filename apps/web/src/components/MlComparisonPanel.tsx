@@ -57,7 +57,7 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="text-center">Product</TableHead>
+                <TableHead>Product</TableHead>
                 <TableHead className="text-center">SKU</TableHead>
                 <TableHead className="text-center">Base Price (₹)</TableHead>
                 <TableHead className="text-center">Live Price (₹)</TableHead>
@@ -69,7 +69,7 @@ export function MlComparisonPanel({ storeId }: MlComparisonPanelProps) {
             <TableBody>
               {comparison.map((entry) => (
                 <TableRow key={entry.productId}>
-                  <TableCell className="font-medium text-center">
+                  <TableCell className="font-medium">
                     {entry.productName}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-center">
