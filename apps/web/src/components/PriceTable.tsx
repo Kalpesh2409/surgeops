@@ -100,7 +100,6 @@ export function PriceTable({ prices }: PriceTableProps) {
       const prev = prevPrices[entry.productId];
       if (prev !== undefined && prev !== entry.surgePrice) {
         const direction: GlowDirection = entry.surgePrice > prev ? 'up' : 'down';
-        // Dedupe: if this product is already queued, replace with latest target
         const existingIndex = queueRef.current.findIndex((q) => q.productId === entry.productId);
         const item: QueueItem = { productId: entry.productId, direction, target: entry.surgePrice };
         if (existingIndex >= 0) {
@@ -130,13 +129,13 @@ export function PriceTable({ prices }: PriceTableProps) {
       <TableHeader>
         <TableRow>
           <TableHead>Product</TableHead>
-          <TableHead>SKU</TableHead>
-          <TableHead>Base Price (₹)</TableHead>
-          <TableHead>Price (₹)</TableHead>
-          <TableHead>Surge Multiplier</TableHead>
-          <TableHead>Reason</TableHead>
-          <TableHead>Confidence</TableHead>
-          <TableHead>Last Updated</TableHead>
+          <TableHead className="text-center">SKU</TableHead>
+          <TableHead className="text-center">Base Price (₹)</TableHead>
+          <TableHead className="text-center">Price (₹)</TableHead>
+          <TableHead className="text-center">Surge Multiplier</TableHead>
+          <TableHead className="text-center">Reason</TableHead>
+          <TableHead className="text-center">Confidence</TableHead>
+          <TableHead className="text-center">Last Updated</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -149,10 +148,10 @@ export function PriceTable({ prices }: PriceTableProps) {
               className={glow === 'up' ? 'glow-up' : glow === 'down' ? 'glow-down' : ''}
             >
               <TableCell className="font-medium">{entry.productName}</TableCell>
-              <TableCell className="text-muted-foreground">{entry.sku}</TableCell>
-              <TableCell className="text-muted-foreground">₹{entry.basePrice.toFixed(2)}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-1.5">
+              <TableCell className="text-muted-foreground text-center">{entry.sku}</TableCell>
+              <TableCell className="text-muted-foreground text-center">₹{entry.basePrice.toFixed(2)}</TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-1.5">
                   <AnimatedPrice value={displayValue} />
                   {entry.explanation && (
                     <Tooltip>
@@ -166,10 +165,10 @@ export function PriceTable({ prices }: PriceTableProps) {
                   )}
                 </div>
               </TableCell>
-              <TableCell>{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
-              <TableCell className="text-muted-foreground text-sm">{getReason(entry.surgeMultiplier)}</TableCell>
-              <TableCell>
-                <div className="flex items-center gap-2">
+              <TableCell className="text-center">{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
+              <TableCell className="text-muted-foreground text-sm text-center">{getReason(entry.surgeMultiplier)}</TableCell>
+              <TableCell className="text-center">
+                <div className="flex items-center justify-center gap-2">
                   <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
                     <div
                       className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
@@ -181,7 +180,7 @@ export function PriceTable({ prices }: PriceTableProps) {
                   </span>
                 </div>
               </TableCell>
-              <TableCell className="text-muted-foreground text-xs">
+              <TableCell className="text-muted-foreground text-xs text-center">
                 {new Date(entry.updatedAt).toLocaleTimeString()}
               </TableCell>
             </TableRow>
