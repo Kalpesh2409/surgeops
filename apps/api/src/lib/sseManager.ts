@@ -54,7 +54,7 @@ export function broadcast(
   for (const res of store) {
     try {
       res.write(payload);
-    } catch (err) {
+    } catch {
       // If a write fails the client has already disconnected — remove it silently
       console.warn(`[SSE] Dead client removed for store=${storeId}`);
       store.delete(res);

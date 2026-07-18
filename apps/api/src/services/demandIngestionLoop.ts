@@ -45,7 +45,6 @@ async function tick(): Promise<void> {
     const redis = getRedis();
 
     for (const storeId of storeIds) {
-      const storeEvents = newEvents.filter((e) => e.storeId === storeId);
 
       // Compute surge prices for this store
       const inventoryItems = await prisma.inventory.findMany({

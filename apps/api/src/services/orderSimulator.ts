@@ -15,7 +15,6 @@ import {
   SURGE_THRESHOLD_MULTIPLIER,
   weightedRandom,
   jitter,
-  type DemandEventType,
 } from "./simulatorPatterns";
 
 const prisma = new PrismaClient();
