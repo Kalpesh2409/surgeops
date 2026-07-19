@@ -7,7 +7,8 @@
     "dev": "ts-node-dev --respawn src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "test": "vitest run"
   },
   "prisma": {
     "seed": "tsx prisma/seed/index.ts"
@@ -38,3 +39,4 @@
     "vitest": "^4.1.10"
   }
 }
+
