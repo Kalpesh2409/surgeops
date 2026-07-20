@@ -40,7 +40,7 @@ Dark stores in Indian quick-commerce operate on thin margins against highly vola
 flowchart TB
     Sim(["🚦 Traffic Simulator<br/>injects demand events"])
 
-    subgraph Stores [" 4 Dark Stores "]
+    subgraph Stores [" 4 Dark Stores (managed by the API) "]
         direction LR
         S1["🏬 Bandra West"]
         S2["🏬 Kothrud"]
@@ -56,12 +56,13 @@ flowchart TB
     Web["📊 React Dashboard<br/>Tailwind + shadcn/ui"]
 
     Sim -->|demand events| API
-    Stores -.->|pricing & inventory state| API
     API <-->|reads/writes| DB
     API <-->|cache & pub| Cache
     API -->|predict| ML
     API -->|explain| Gemini
     API ==>|SSE stream| Web
+
+    Stores ~~~ API
 
     classDef store fill:#fce7f3,stroke:#db2777,color:#831843,stroke-width:1px
     classDef core fill:#dbeafe,stroke:#2563eb,color:#1e3a8a,stroke-width:2px
