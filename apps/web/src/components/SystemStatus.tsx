@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 type ServiceState = 'checking' | 'healthy' | 'down';
 
 interface ServiceStatus {
@@ -35,7 +37,7 @@ export function SystemStatus() {
     async function checkHealth() {
       // API + Postgres come from /health
       try {
-        const res = await fetch('http://localhost:4000/health');
+        const res = await fetch(`${API_BASE}/health`);
         if (!cancelled) {
           if (res.ok) {
             const data = await res.json();
@@ -54,7 +56,7 @@ export function SystemStatus() {
 
       // Redis from /health/redis
       try {
-        const res = await fetch('http://localhost:4000/health/redis');
+        const res = await fetch(`${API_BASE}/health/redis`);
         if (!cancelled) {
           const data = await res.json();
           setStatus((prev) => ({ ...prev, redis: data?.status === 'healthy' ? 'healthy' : 'down' }));

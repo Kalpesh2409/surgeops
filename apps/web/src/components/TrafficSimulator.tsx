@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Zap, Flame, AlertTriangle } from "lucide-react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 type ButtonConfig = {
   key: string;
   label: string;
@@ -43,7 +45,7 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
   const [ddosProgress, setDdosProgress] = useState(0);
 
   async function inject(multiplier: number) {
-    const res = await fetch("http://localhost:4000/simulator/inject", {
+    const res = await fetch(`${API_BASE}/simulator/inject`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ storeId, multiplier }),

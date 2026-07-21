@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = "http://localhost:4000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 const POLL_INTERVAL_MS = 30_000; // 30s — comparison data refreshes every 2min server-side
 
 export interface PriceComparisonEntry {

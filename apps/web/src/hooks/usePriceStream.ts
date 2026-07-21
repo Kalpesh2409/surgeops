@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
+
 type ConnectionStatus = "connecting" | "connected" | "disconnected";
 
 export interface PriceEntry {
@@ -61,7 +63,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
     setEvents([]);
 
     // Initial price load
-    fetch(`http://localhost:4000/pricing/current/${storeId}`)
+    fetch(`${API_BASE}/pricing/current/${storeId}`)
       .then((r) => r.json())
       .then((data: { prices: PriceEntry[] }) => {
         const map: Record<string, PriceEntry> = {};
@@ -85,7 +87,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
       .catch(() => {});
 
     // Initial inventory load
-    fetch(`http://localhost:4000/inventory/${storeId}`)
+    fetch(`${API_BASE}/inventory/${storeId}`)
       .then((r) => r.json())
       .then((data: { inventory: InventoryItem[] }) => {
         const map: Record<string, InventoryItem> = {};
@@ -96,7 +98,7 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
       })
       .catch(() => {});
 
-    const es = new EventSource(`http://localhost:4000/stream/${storeId}`);
+    const es = new EventSource(`${API_BASE}/stream/${storeId}`);
     esRef.current = es;
 
     es.addEventListener("connected", () => {
