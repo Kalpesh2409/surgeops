@@ -2,6 +2,10 @@
 
 [![CI](https://github.com/Kalpesh2409/surgeops/actions/workflows/ci.yml/badge.svg)](https://github.com/Kalpesh2409/surgeops/actions/workflows/ci.yml)
 
+## Demo
+
+<!-- TODO: Add demo GIF/recording here once captured. Suggested: record a full flow via `/simulator/demo-ramp` showing prices climbing from Normal → Elevated → Surge on the dashboard. -->
+
 ## Problem Statement
 
 Dark stores in Indian quick-commerce operate on thin margins against highly volatile, hyperlocal demand — a heatwave spikes cold-drink orders, a downpour spikes staples, and static pricing/inventory rules can't keep up. Manual price reviews lag the spike; fixed markups leave margin on the table during stockout-risk windows; and inventory imbalances between stores go unaddressed.
