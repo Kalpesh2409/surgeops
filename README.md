@@ -187,7 +187,6 @@ curl -X POST http://localhost:4000/simulator/demo-ramp \
 ```
 
 ## Key Features
-​
 - **Real-time SSE dashboard** — live pricing and inventory updates pushed to the frontend as they happen, no polling
 - **Rules engine + ML cross-check** — a deterministic pricing engine runs alongside a scikit-learn demand model, surfacing both for comparison
 - **AI-generated pricing explanations** — Gemini API explains *why* a price changed, in plain language, cached to respect free-tier limits
@@ -196,11 +195,7 @@ curl -X POST http://localhost:4000/simulator/demo-ramp \
 - **Fully containerized dev environment** — Postgres + Redis via Docker Compose, with CI running the same services in GitHub Actions
 ​
 ## Future Scope
-​
-- **Live store integration** — the Traffic Simulator currently injects synthetic demand events to mimic real customer orders. Once a real store frontend/API exists, order events from that API would replace the simulator as the trigger — the downstream pipeline (rules engine, ML comparison, Redis caching, SSE broadcast) is already built to react to demand events generically, so this would mainly involve mapping real order data into the existing event shape and handling real-world concerns like retries and out-of-order delivery
-- **Deployment** — deploy to Railway/Render for a live, publicly accessible demo (planned for Session 26)
-- **Smooth scroll (Lenis)** — polish scroll behavior on the dashboard, deferred pending a dedicated session
-- **Animation timing refinement** — revisit the Surge batch animation sequencing for multi-product updates after further review
+- **Live store integration** — Right now, a Traffic Simulator fakes customer orders to test the system. Later, this will be replaced with a real store website, so real orders will trigger the same pricing and inventory updates automatically.
 - **Extended ML features** — explore rolling/lag demand features if richer (non-synthetic) data becomes available; deferred in earlier testing due to multicollinearity with synthetic data showing no measurable accuracy benefit
 - **Per-store AI explanation budgets** — on a paid Gemini tier, move from a shared rate-limited budget to independent per-store explanation calls
 ​
