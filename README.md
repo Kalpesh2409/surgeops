@@ -76,3 +76,59 @@ flowchart TB
     class ML,Gemini ext
     class Web ui
 ```
+
+## Setup & Run Instructions
+
+### Prerequisites
+- Node.js (v20+)
+- Python 3.13
+- Docker & Docker Compose
+
+### 1. Clone and configure environment
+```bash
+git clone https://github.com/Kalpesh2409/surgeops.git
+cd surgeops
+cp .env.example .env
+```
+Edit `.env` and add your own `GEMINI_API_KEY` (free tier — [get one here](https://ai.google.dev/)).
+
+### 2. Start Postgres and Redis
+```bash
+docker-compose up -d
+```
+
+### 3. Set up and start the API (port 4000)
+```bash
+cd apps/api
+npm install
+npx prisma generate
+npx prisma migrate dev
+npx tsx prisma/seed/index.ts
+npm run dev
+```
+API will be running at `http://localhost:4000`.
+
+### 4. Set up and start the ML service (port 8000)
+```bash
+cd apps/ml
+python -m venv venv
+.\venv\Scripts\Activate.ps1   # Windows
+# source venv/bin/activate    # macOS/Linux
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### 5. Set up and start the frontend
+```bash
+cd apps/web
+npm install
+npm run dev
+```
+Frontend will be running at the Vite dev URL shown in the terminal (typically `http://localhost:5173`).
+
+### 6. Trigger a demo
+```bash
+curl -X POST http://localhost:4000/simulator/demo-ramp \
+  -H "Content-Type: application/json" \
+  -d '{"storeId": "store-mumbai-bandra"}'
+```
