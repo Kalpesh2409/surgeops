@@ -32,8 +32,8 @@ venv/
 
 # ML artifacts
 
-*.pkl
-*.joblib
+!apps/ml/*.pkl
+!apps/ml/*.joblib
 
 # =========================
 
