@@ -38,6 +38,55 @@ Dark stores in Indian quick-commerce operate on thin margins against highly vola
 - **Docker Compose** — spins up Postgres, Redis, API, ML service, and frontend together with one command; no need for Kubernetes-level orchestration at this scale.
 - **GitHub Actions** — free CI for a private repo, with real Postgres/Redis service containers so tests run against real infra, not mocks.
 
+## Project Structure
+
+```
+surgeops/
+├── .github/                      # GitHub Actions CI workflows
+├── apps/
+│   ├── api/                      # Node.js + Express + TypeScript API (port 4000)
+│   │   ├── prisma/
+│   │   │   ├── migrations/
+│   │   │   ├── seed/
+│   │   │   └── schema.prisma
+│   │   ├── scripts/
+│   │   │   ├── resetDemoData.ts
+│   │   │   ├── runMLPricingSuggestions.ts
+│   │   │   └── seedHistory.ts
+│   │   └── src/
+│   │       ├── __tests__/
+│   │       ├── lib/                # prisma client, redis client, sseManager, inventoryStatus
+│   │       ├── middleware/         # errorHandler
+│   │       ├── routes/             # health, inventory, pricing, simulator, stores, stream
+│   │       ├── services/           # pricingEngine, mlPricingSuggester, geminiExplainer,
+│   │       │                       # demandIngestionLoop, orderSimulator, priceUpdateWriter, etc.
+│   │       ├── app.ts
+│   │       └── index.ts
+│   ├── docs/                     # Project docs (e.g. demo rehearsal scripts)
+│   ├── ml/                       # Python + FastAPI + scikit-learn ML service (port 8000)
+│   │   ├── main.py                 # FastAPI app entry point
+│   │   ├── train.py                # Model training script
+│   │   ├── build_features.py
+│   │   ├── model.pkl / product_encoder.pkl / store_encoder.pkl / avg_demand.pkl
+│   │   └── requirements.txt
+│   └── web/                      # React + TypeScript + Tailwind frontend
+│       ├── public/
+│       └── src/
+│           ├── assets/
+│           ├── components/
+│           │   ├── ui/              # shadcn/ui primitives (badge, button, card, select, etc.)
+│           │   ├── __tests__/
+│           │   └── ZoneCard.tsx, PriceTable.tsx, StoreSelector.tsx,
+│           │       InventoryPanel.tsx, MlComparisonPanel.tsx, TrafficSimulator.tsx, etc.
+│           ├── hooks/               # usePriceStream, useMlComparison, useAnimatedNumber
+│           ├── lib/                 # utils, zoneHeat
+│           ├── App.tsx
+│           └── main.tsx
+├── .env.example
+├── docker-compose.yml             # Postgres + Redis
+├── LICENSE
+└── README.md
+```
 ## Architecture
 
 ```mermaid
@@ -136,3 +185,22 @@ curl -X POST http://localhost:4000/simulator/demo-ramp \
   -H "Content-Type: application/json" \
   -d '{"storeId": "store-mumbai-bandra"}'
 ```
+
+## Key Features
+​
+- **Real-time SSE dashboard** — live pricing and inventory updates pushed to the frontend as they happen, no polling
+- **Rules engine + ML cross-check** — a deterministic pricing engine runs alongside a scikit-learn demand model, surfacing both for comparison
+- **AI-generated pricing explanations** — Gemini API explains *why* a price changed, in plain language, cached to respect free-tier limits
+- **4 simulated dark stores** — Mumbai Bandra West, Pune Kothrud, Bangalore Koramangala, Delhi Noida, each with independent pricing/inventory state
+- **Traffic Simulator** — inject synthetic demand events to trigger surge pricing scenarios on demand, without waiting for real traffic
+- **Fully containerized dev environment** — Postgres + Redis via Docker Compose, with CI running the same services in GitHub Actions
+​
+## Future Scope
+​
+- **Live store integration** — the Traffic Simulator currently injects synthetic demand events to mimic real customer orders. Once a real store frontend/API exists, order events from that API would replace the simulator as the trigger — the downstream pipeline (rules engine, ML comparison, Redis caching, SSE broadcast) is already built to react to demand events generically, so this would mainly involve mapping real order data into the existing event shape and handling real-world concerns like retries and out-of-order delivery
+- **Deployment** — deploy to Railway/Render for a live, publicly accessible demo (planned for Session 26)
+- **Smooth scroll (Lenis)** — polish scroll behavior on the dashboard, deferred pending a dedicated session
+- **Animation timing refinement** — revisit the Surge batch animation sequencing for multi-product updates after further review
+- **Extended ML features** — explore rolling/lag demand features if richer (non-synthetic) data becomes available; deferred in earlier testing due to multicollinearity with synthetic data showing no measurable accuracy benefit
+- **Per-store AI explanation budgets** — on a paid Gemini tier, move from a shared rate-limited budget to independent per-store explanation calls
+​
