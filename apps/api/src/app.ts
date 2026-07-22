@@ -13,7 +13,12 @@ import inventoryRoutes from "./routes/inventory";
 
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173" }));
+const allowedOrigins = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter((origin): origin is string => Boolean(origin));
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 // ── Route registration ────────────────────────────────────────────────────────
