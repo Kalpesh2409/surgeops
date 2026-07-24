@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -6,16 +6,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Info } from 'lucide-react';
-import type { PriceEntry } from '@/hooks/usePriceStream';
-import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
+import type { PriceEntry } from "@/hooks/usePriceStream";
+import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 
 interface PriceTableProps {
   prices: Record<string, PriceEntry>;
@@ -25,21 +25,35 @@ const GLOW_HOLD_MS = 2000;
 const ROLL_DURATION_MS = 1000;
 
 function getSurgeBadge(multiplier: number) {
-  if (multiplier >= 1.5) return <Badge className="bg-status-surge text-white">{multiplier.toFixed(2)}x</Badge>;
-  if (multiplier >= 1.1) return <Badge className="bg-status-elevated text-white">{multiplier.toFixed(2)}x</Badge>;
-  return <Badge className="bg-status-normal text-white">{multiplier.toFixed(2)}x</Badge>;
+  if (multiplier >= 1.5)
+    return (
+      <Badge className="bg-status-surge text-white">
+        {multiplier.toFixed(2)}x
+      </Badge>
+    );
+  if (multiplier >= 1.1)
+    return (
+      <Badge className="bg-status-elevated text-white">
+        {multiplier.toFixed(2)}x
+      </Badge>
+    );
+  return (
+    <Badge className="bg-status-normal text-white">
+      {multiplier.toFixed(2)}x
+    </Badge>
+  );
 }
 
 function getReason(multiplier: number) {
-  if (multiplier >= 1.5) return 'Heavy demand spike';
-  if (multiplier >= 1.1) return 'Normal demand';
-  return 'Low inventory';
+  if (multiplier >= 1.5) return "Heavy demand spike";
+  if (multiplier >= 1.1) return "Normal demand";
+  return "Low inventory";
 }
 
 function getConfidenceColor(multiplier: number) {
-  if (multiplier >= 1.5) return 'bg-status-surge';
-  if (multiplier >= 1.1) return 'bg-status-elevated';
-  return 'bg-status-normal';
+  if (multiplier >= 1.5) return "bg-status-surge";
+  if (multiplier >= 1.1) return "bg-status-elevated";
+  return "bg-status-normal";
 }
 
 function AnimatedPrice({ value }: { value: number }) {
@@ -47,12 +61,26 @@ function AnimatedPrice({ value }: { value: number }) {
   return <span>₹{animated.toFixed(2)}</span>;
 }
 
-type GlowDirection = 'up' | 'down';
+function AnimatedConfidence({ value }: { value: number }) {
+  const animated = useAnimatedNumber(value, ROLL_DURATION_MS);
+  return <>{Math.round(animated * 100)}%</>;
+}
+
+type GlowDirection = "up" | "down";
+
+// Snapshot of everything that should change together, in sync with the
+// price roll animation — confidence + surge multiplier now travel with
+// the price instead of updating instantly ahead of it (Session 27 fix).
+interface DisplaySnapshot {
+  price: number;
+  confidence: number;
+  surgeMultiplier: number;
+}
 
 interface QueueItem {
   productId: string;
   direction: GlowDirection;
-  target: number;
+  target: DisplaySnapshot;
 }
 
 export function PriceTable({ prices }: PriceTableProps) {
@@ -60,7 +88,9 @@ export function PriceTable({ prices }: PriceTableProps) {
   const queueRef = useRef<QueueItem[]>([]);
   const processingRef = useRef(false);
   const [glowMap, setGlowMap] = useState<Record<string, GlowDirection>>({});
-  const [displayPrices, setDisplayPrices] = useState<Record<string, number>>({});
+  const [displayData, setDisplayData] = useState<
+    Record<string, DisplaySnapshot>
+  >({});
 
   function processNext() {
     if (processingRef.current) return;
@@ -71,7 +101,9 @@ export function PriceTable({ prices }: PriceTableProps) {
     setGlowMap({ [next.productId]: next.direction });
 
     setTimeout(() => {
-      setDisplayPrices((d) => ({ ...d, [next.productId]: next.target }));
+      // Price, confidence, and surge multiplier all update together here —
+      // this is the single moment everything visually changes at once.
+      setDisplayData((d) => ({ ...d, [next.productId]: next.target }));
 
       setTimeout(() => {
         setGlowMap({});
@@ -92,16 +124,36 @@ export function PriceTable({ prices }: PriceTableProps) {
 
     if (isFirstRun) {
       prevPricesRef.current = nextPrices;
-      setDisplayPrices(nextPrices);
+      const initialData: Record<string, DisplaySnapshot> = {};
+      Object.values(prices).forEach((entry) => {
+        initialData[entry.productId] = {
+          price: entry.surgePrice,
+          confidence: entry.confidence,
+          surgeMultiplier: entry.surgeMultiplier,
+        };
+      });
+      setDisplayData(initialData);
       return;
     }
 
     Object.values(prices).forEach((entry) => {
       const prev = prevPrices[entry.productId];
       if (prev !== undefined && prev !== entry.surgePrice) {
-        const direction: GlowDirection = entry.surgePrice > prev ? 'up' : 'down';
-        const existingIndex = queueRef.current.findIndex((q) => q.productId === entry.productId);
-        const item: QueueItem = { productId: entry.productId, direction, target: entry.surgePrice };
+        const direction: GlowDirection =
+          entry.surgePrice > prev ? "up" : "down";
+        const target: DisplaySnapshot = {
+          price: entry.surgePrice,
+          confidence: entry.confidence,
+          surgeMultiplier: entry.surgeMultiplier,
+        };
+        const existingIndex = queueRef.current.findIndex(
+          (q) => q.productId === entry.productId,
+        );
+        const item: QueueItem = {
+          productId: entry.productId,
+          direction,
+          target,
+        };
         if (existingIndex >= 0) {
           queueRef.current[existingIndex] = item;
         } else {
@@ -141,18 +193,28 @@ export function PriceTable({ prices }: PriceTableProps) {
       <TableBody>
         {entries.map((entry) => {
           const glow = glowMap[entry.productId];
-          const displayValue = displayPrices[entry.productId] ?? entry.surgePrice;
+          const snapshot: DisplaySnapshot = displayData[entry.productId] ?? {
+            price: entry.surgePrice,
+            confidence: entry.confidence,
+            surgeMultiplier: entry.surgeMultiplier,
+          };
           return (
             <TableRow
               key={entry.productId}
-              className={glow === 'up' ? 'glow-up' : glow === 'down' ? 'glow-down' : ''}
+              className={
+                glow === "up" ? "glow-up" : glow === "down" ? "glow-down" : ""
+              }
             >
               <TableCell className="font-medium">{entry.productName}</TableCell>
-              <TableCell className="text-muted-foreground text-center">{entry.sku}</TableCell>
-              <TableCell className="text-muted-foreground text-center">₹{entry.basePrice.toFixed(2)}</TableCell>
+              <TableCell className="text-muted-foreground text-center">
+                {entry.sku}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-center">
+                ₹{entry.basePrice.toFixed(2)}
+              </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-1.5">
-                  <AnimatedPrice value={displayValue} />
+                  <AnimatedPrice value={snapshot.price} />
                   {entry.explanation && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -165,18 +227,24 @@ export function PriceTable({ prices }: PriceTableProps) {
                   )}
                 </div>
               </TableCell>
-              <TableCell className="text-center">{getSurgeBadge(entry.surgeMultiplier)}</TableCell>
-              <TableCell className="text-muted-foreground text-sm text-center">{getReason(entry.surgeMultiplier)}</TableCell>
+              <TableCell className="text-center">
+                {getSurgeBadge(snapshot.surgeMultiplier)}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-sm text-center">
+                {getReason(snapshot.surgeMultiplier)}
+              </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-24 h-2 rounded-full bg-muted/50 border border-border overflow-hidden">
                     <div
-                      className={`h-full ${getConfidenceColor(entry.surgeMultiplier)}`}
-                      style={{ width: `${Math.max(4, Math.round(entry.confidence * 100))}%` }}
+                      className={`h-full transition-all duration-1000 ${getConfidenceColor(snapshot.surgeMultiplier)}`}
+                      style={{
+                        width: `${Math.max(4, Math.round(snapshot.confidence * 100))}%`,
+                      }}
                     />
                   </div>
                   <span className="text-xs text-muted-foreground w-8">
-                    {Math.round(entry.confidence * 100)}%
+                    <AnimatedConfidence value={snapshot.confidence} />
                   </span>
                 </div>
               </TableCell>
