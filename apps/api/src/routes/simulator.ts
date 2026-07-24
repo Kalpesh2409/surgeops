@@ -13,6 +13,7 @@ import {
   computeInventoryStatus,
   computeLevelPercent,
 } from "../lib/inventoryStatus";
+import { stockMatrix } from "../data/baselineStock";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -273,7 +274,9 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
       where: { storeId, productId: { in: allProductIds } },
       select: { productId: true, surgeMultiplierMax: true },
     });
-    const capByProduct = new Map(rules.map((r) => [r.productId, r.surgeMultiplierMax]));
+    const capByProduct = new Map(
+      rules.map((r) => [r.productId, r.surgeMultiplierMax]),
+    );
     const eligibleProductIds = allProductIds.filter(
       (pid) => (capByProduct.get(pid) ?? 1.5) >= 1.3,
     );
@@ -309,9 +312,13 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
         ),
       );
       const surgingCount = results.filter(
-        (r): r is NonNullable<typeof r> => r !== null && r.surgeMultiplier >= 1.3,
+        (r): r is NonNullable<typeof r> =>
+          r !== null && r.surgeMultiplier >= 1.3,
       ).length;
-      return { surgingCount, percent: Math.round((surgingCount / totalProducts) * 100) };
+      return {
+        surgingCount,
+        percent: Math.round((surgingCount / totalProducts) * 100),
+      };
     }
 
     /**
@@ -322,7 +329,11 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
     async function rampUntil(
       pool: string[],
       isDone: (percent: number) => boolean,
-    ): Promise<{ injected: string[]; finalPercent: number; finalZoneState: string }> {
+    ): Promise<{
+      injected: string[];
+      finalPercent: number;
+      finalZoneState: string;
+    }> {
       const injected: string[] = [];
       let percent = (await computeActualSurgePercent()).percent;
 
@@ -333,7 +344,8 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
         percent = (await computeActualSurgePercent()).percent;
       }
 
-      const zoneState = percent > 50 ? "surge" : percent >= 20 ? "elevated" : "normal";
+      const zoneState =
+        percent > 50 ? "surge" : percent >= 20 ? "elevated" : "normal";
       return { injected, finalPercent: percent, finalZoneState: zoneState };
     }
 
@@ -347,10 +359,7 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
     ];
 
     // ── Stage 1: Elevated (target: 20-50%) ──
-    const elevatedRun = await rampUntil(
-      eligibleProductIds,
-      (pct) => pct >= 20,
-    );
+    const elevatedRun = await rampUntil(eligibleProductIds, (pct) => pct >= 20);
     log.push({
       stage: "elevated",
       injectedProducts: elevatedRun.injected,
@@ -386,4 +395,80 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * POST /simulator/reset/:storeId
+ * Session 27 — safe, password-free demo reset.
+ *
+ * Restores a store's inventory (quantityOnHand + currentPrice) back to
+ * Day 1 baseline values from src/data/baselineStock.ts, then clears out
+ * everything the simulator writes: DemandEvents, PricingSuggestions, and
+ * Redis cache keys. Lets a live demo be reset via one API call — no local
+ * terminal, no DB password, ever.
+ */
+router.post("/reset/:storeId", async (req: Request, res: Response) => {
+  const { storeId } = req.params;
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: "Store not found" });
+    }
+
+    const baseline = stockMatrix[storeId];
+    if (!baseline) {
+      return res.status(400).json({ error: "No baseline data for this store" });
+    }
+
+    // --- Restore inventory to Day 1 values ---
+    let restoredCount = 0;
+    for (const [productId, entry] of Object.entries(baseline)) {
+      await prisma.inventory
+        .update({
+          where: { storeId_productId: { storeId, productId } },
+          data: {
+            quantityOnHand: entry.qty,
+            reorderLevel: entry.reorderLevel,
+            reorderQty: entry.reorderQty,
+            currentPrice: entry.currentPrice,
+          },
+        })
+        .then(() => restoredCount++)
+        .catch((err) => {
+          console.error(
+            `[Simulator] Reset: failed to restore product=${productId}`,
+            err,
+          );
+        });
+    }
+
+    // --- Clear simulated history ---
+    const deletedEvents = await prisma.demandEvent.deleteMany({ where: { storeId } });
+    const deletedSuggestions = await prisma.pricingSuggestion.deleteMany({ where: { storeId } });
+
+    // --- Clear cache ---
+    const redis = getRedis();
+    await redis.del(CacheKeys.storePrice(storeId));
+    const productKeys = await redis.keys(`price:${storeId}:*`);
+    if (productKeys.length > 0) await redis.del(...productKeys);
+
+    console.log(
+      `[Simulator] Reset: store=${storeId} restored=${restoredCount} deletedEvents=${deletedEvents.count} deletedSuggestions=${deletedSuggestions.count}`,
+    );
+
+    return res.json({
+      message: "Store reset to baseline",
+      storeId,
+      productsRestored: restoredCount,
+      deletedDemandEvents: deletedEvents.count,
+      deletedPricingSuggestions: deletedSuggestions.count,
+      cacheCleared: { storeKey: true, productKeys: productKeys.length },
+    });
+  } catch (err) {
+    console.error("[Simulator] /reset error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
+
+
