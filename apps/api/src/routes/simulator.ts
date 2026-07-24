@@ -404,6 +404,11 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
  * everything the simulator writes: DemandEvents, PricingSuggestions, and
  * Redis cache keys. Lets a live demo be reset via one API call — no local
  * terminal, no DB password, ever.
+ *
+ * Session 27 follow-up: also broadcasts price-update + stock-update over
+ * SSE for every restored product, same as /inject and /demo-ramp already
+ * do — otherwise the reset only changes the database, and the live
+ * dashboard doesn't visually update until the page is manually refreshed.
  */
 router.post("/reset/:storeId", async (req: Request, res: Response) => {
   const { storeId } = req.params;
@@ -419,9 +424,23 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No baseline data for this store" });
     }
 
+    // Fetch current inventory + product info BEFORE resetting, so we know
+    // each product's "before" quantity for the stock-update broadcast, and
+    // have name/sku/basePrice on hand for the price-update broadcast.
+    const inventoryBefore = await prisma.inventory.findMany({
+      where: { storeId },
+      include: {
+        product: { select: { id: true, name: true, sku: true, basePrice: true } },
+      },
+    });
+    const beforeByProduct = new Map(inventoryBefore.map((i) => [i.productId, i]));
+
     // --- Restore inventory to Day 1 values ---
     let restoredCount = 0;
     for (const [productId, entry] of Object.entries(baseline)) {
+      const before = beforeByProduct.get(productId);
+      if (!before) continue;
+
       await prisma.inventory
         .update({
           where: { storeId_productId: { storeId, productId } },
@@ -432,7 +451,51 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
             currentPrice: entry.currentPrice,
           },
         })
-        .then(() => restoredCount++)
+        .then(() => {
+          restoredCount++;
+
+          const nowIso = new Date().toISOString();
+
+          // Broadcast the restored price, same shape as /inject uses
+          broadcast(
+            storeId,
+            {
+              productId,
+              productName: before.product.name,
+              sku: before.product.sku,
+              basePrice: before.product.basePrice,
+              currentPrice: entry.currentPrice,
+              surgeMultiplier: 1.0,
+              confidence: 0,
+              explanation: null,
+              updatedAt: nowIso,
+            },
+            "price-update",
+          );
+
+          // Broadcast the restored stock level, same shape as injectForProduct uses
+          broadcast(
+            storeId,
+            {
+              productId,
+              name: before.product.name,
+              sku: before.product.sku,
+              unitsOrdered: 0,
+              quantityBefore: before.quantityOnHand,
+              quantityAfter: entry.qty,
+              reorderLevel: entry.reorderLevel,
+              reorderQty: entry.reorderQty,
+              status: computeInventoryStatus(entry.qty, entry.reorderLevel),
+              levelPercent: computeLevelPercent(
+                entry.qty,
+                entry.reorderLevel,
+                entry.reorderQty,
+              ),
+              updatedAt: nowIso,
+            },
+            "stock-update",
+          );
+        })
         .catch((err) => {
           console.error(
             `[Simulator] Reset: failed to restore product=${productId}`,

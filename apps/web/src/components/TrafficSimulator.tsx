@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Zap, Flame, AlertTriangle } from "lucide-react";
+import { Zap, Flame, AlertTriangle, RotateCcw } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -43,6 +43,7 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [ddosRunning, setDdosRunning] = useState(false);
   const [ddosProgress, setDdosProgress] = useState(0);
+  const [resetting, setResetting] = useState(false);
 
   async function inject(multiplier: number) {
     const res = await fetch(`${API_BASE}/simulator/inject`, {
@@ -87,7 +88,22 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
     setDdosProgress(0);
   }
 
-  const anyRunning = loadingKey !== null || ddosRunning;
+  async function handleResetClick() {
+    if (loadingKey || ddosRunning || resetting) return;
+    setResetting(true);
+    try {
+      const res = await fetch(`${API_BASE}/simulator/reset/${storeId}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error(`Reset failed: HTTP ${res.status}`);
+    } catch (err) {
+      console.error("[TrafficSimulator] reset failed:", err);
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  const anyRunning = loadingKey !== null || ddosRunning || resetting;
 
   return (
     <Card>
@@ -142,6 +158,26 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
             </span>
           </span>
         </button>
+
+        <div className="pt-2 mt-2 border-t border-border">
+          <button
+            onClick={handleResetClick}
+            disabled={anyRunning}
+            className="w-full flex items-center gap-3 rounded-lg border border-status-normal/30 bg-status-normal/10 px-4 py-3 text-left transition-colors hover:bg-status-normal/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span className="flex items-center justify-center w-6">
+              <RotateCcw className={`w-4 h-4 text-status-normal ${resetting ? "animate-spin" : ""}`} />
+            </span>
+            <span>
+              <span className="block text-sm font-semibold text-status-normal">
+                {resetting ? "Resetting…" : "Reset Demo"}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                Restore this store to Day 1 baseline
+              </span>
+            </span>
+          </button>
+        </div>
       </CardContent>
     </Card>
   );
