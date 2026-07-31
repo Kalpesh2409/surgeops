@@ -16,6 +16,9 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
 
   try {
     // --- Cache check ---
+    // Session 27 (MRP pass): mrp/cappedAtMrp are already included here
+    // automatically, since demandIngestionLoop.ts and priceUpdateWriter.ts
+    // now write those fields into the cache payload directly.
     const cached = await redis.get(cacheKey);
     if (cached) {
       console.log(`[Pricing] CACHE HIT  store=${storeId} key=${cacheKey}`);
@@ -33,7 +36,13 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
       where: { storeId },
       include: {
         product: {
-          select: { id: true, name: true, sku: true, basePrice: true },
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+            mrp: true,
+          },
         },
       },
     });
@@ -53,14 +62,26 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
       latestSuggestions.map((s) => [s.productId, s.confidence]),
     );
 
+    const MRP_EPSILON = 0.01;
+
     const prices = await Promise.all(
       inventory.map(async (inv) => {
         const basePrice = inv.product.basePrice;
+        const mrp = inv.product.mrp;
         const currentPrice = Number(inv.currentPrice);
         const surgeMultiplier =
           basePrice > 0
             ? parseFloat((currentPrice / basePrice).toFixed(4))
             : 1.0;
+
+        // Session 27 fix: removed the "price sits at MRP" heuristic — it
+        // produced false positives whenever mrp == basePrice (the normal
+        // case for these products), flagging every untouched price as
+        // "capped" even with zero surge activity. The DB-fallback path only
+        // runs rarely (right after a cache miss); defaulting to false here
+        // is safe, since the accurate flag already flows correctly through
+        // the cache/SSE paths written by priceUpdateWriter.ts.
+        const cappedAtMrp = false;
 
         let explanation: string | null = null;
         try {
@@ -84,6 +105,8 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
           productName: inv.product.name,
           sku: inv.product.sku,
           basePrice,
+          mrp,
+          cappedAtMrp,
           currentPrice,
           surgeMultiplier,
           confidence: confidenceByProduct.get(inv.productId) ?? 0,
@@ -187,7 +210,13 @@ router.get("/compare/:storeId", async (req: Request, res: Response) => {
       where: { storeId },
       include: {
         product: {
-          select: { id: true, name: true, sku: true, basePrice: true },
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+            mrp: true,
+          },
         },
       },
     });
@@ -228,6 +257,7 @@ router.get("/compare/:storeId", async (req: Request, res: Response) => {
         productName: inv.product.name,
         sku: inv.product.sku,
         basePrice: inv.product.basePrice,
+        mrp: inv.product.mrp,
         rulesEngine: {
           suggestedPrice: rulesPrice,
           confidence: rulesAudit?.confidence ?? 0,

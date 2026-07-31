@@ -2,28 +2,43 @@ import { PrismaClient } from "@prisma/client";
 import { computeSuggestedPrice } from "./pricingEngine";
 import { writePriceUpdates } from "./priceUpdateWriter";
 import { getRedis, CacheKeys } from "../lib/redisClient";
-import { generatePriceExplanation } from "./geminiExplainer";
+import { buildExplanation } from "./explanationBuilder";
 
 const prisma = new PrismaClient();
 
 let loopTimer: ReturnType<typeof setInterval> | null = null;
-let highWaterMark: Date = new Date(0); // deduplication cursor
+
+// Session 27 (restart-replay fix): this used to start at new Date(0) — the
+// very beginning of time. That meant every time the API server restarted
+// (a manual restart locally, or a redeploy on Render), this cursor reset
+// to zero and the very first tick treated EVERY DemandEvent ever created
+// as brand new, replaying the whole day's old activity at once. Starting
+// it at "now" means a fresh server boot only looks forward from that
+// moment, never backward through history.
+let highWaterMark: Date = new Date();
 
 const POLL_INTERVAL_MS = 15_000;
-const EXPLANATION_EPSILON = 0.5; // ₹ — skip Gemini call if price hasn't moved beyond this
-const MAX_GEMINI_CALLS_PER_TICK = 1; // 4 ticks/min × 1 call = 4/min, safely under 5 RPM
 
-let geminiCallsUsedThisTick = 0;
+/**
+ * Session 27+ (Gemini removed): explanations are now built instantly with
+ * buildExplanation() wherever a price is computed — no external API call,
+ * no per-tick rate limit, no "pending explanation" queue, no staleness
+ * checks. This removed a large amount of complexity that used to live
+ * here (EXPLANATION_EPSILON, MAX_GEMINI_CALLS_PER_TICK, the
+ * pendingExplanations Set, the CachedExplanation cache shape, and a whole
+ * separate "pending-explanation-only tick" code path) — none of it is
+ * needed anymore since there's nothing left that can ever go stale or
+ * need a retry.
+ */
 
 async function tick(): Promise<void> {
   try {
-    geminiCallsUsedThisTick = 0; // reset budget for this tick
-
     // --- Fetch new DemandEvents since last high-water mark ---
     const newEvents = await prisma.demandEvent.findMany({
       where: { recordedAt: { gt: highWaterMark } },
       orderBy: { recordedAt: "asc" },
     });
+
     if (newEvents.length === 0) {
       console.log(
         "[DemandLoop] No new events since",
@@ -52,17 +67,38 @@ async function tick(): Promise<void> {
         select: { productId: true },
       });
 
+      // Session 27 (MRP pass): capture cappedAtMrp per product from this same
+      // computeSuggestedPrice call, so we don't need to call it twice later
+      // when building the aggregate cache below.
+      const cappedAtMrpByProduct = new Map<string, boolean>();
+
+      // Session 27 (Bug 1 fix): also capture the TRUE surgeMultiplier from
+      // the pricing engine here, per product. The storeAgg block below used
+      // to recalculate surgeMultiplier as currentPrice / basePrice, which
+      // always collapses to 1.00x whenever a price is MRP-capped (since a
+      // capped price equals basePrice) — hiding the real demand signal.
+      // Reusing the engine's own value fixes that.
+      const surgeMultiplierByProduct = new Map<string, number>();
+
       const updates = (
         await Promise.all(
           inventoryItems.map((inv) =>
             computeSuggestedPrice({ storeId, productId: inv.productId })
-              .then((result) => ({
-                storeId,
-                productId: inv.productId,
-                currentPrice: result.suggestedPrice,
-                surgeMultiplier: result.surgeMultiplier,
-                confidence: result.confidence,
-              }))
+              .then((result) => {
+                cappedAtMrpByProduct.set(inv.productId, result.cappedAtMrp);
+                surgeMultiplierByProduct.set(
+                  inv.productId,
+                  result.surgeMultiplier,
+                );
+                return {
+                  storeId,
+                  productId: inv.productId,
+                  currentPrice: result.suggestedPrice,
+                  surgeMultiplier: result.surgeMultiplier,
+                  confidence: result.confidence,
+                  cappedAtMrp: result.cappedAtMrp,
+                };
+              })
               .catch(() => null),
           ),
         )
@@ -72,16 +108,11 @@ async function tick(): Promise<void> {
 
       // --- Write store-level aggregate cache (TTL 30s) ---
       // Fetch current inventory prices for this store after updates
-      const store = await prisma.store.findUnique({
-        where: { id: storeId },
-        select: { name: true },
-      });
-
       const inventory = await prisma.inventory.findMany({
         where: { storeId },
         include: {
           product: {
-            select: { id: true, name: true, sku: true, basePrice: true },
+            select: { id: true, name: true, sku: true, basePrice: true, mrp: true },
           },
         },
       });
@@ -97,87 +128,54 @@ async function tick(): Promise<void> {
         latestSuggestions.map((s) => [s.productId, s.confidence]),
       );
 
-      const storeAgg = await Promise.all(
-        inventory.map(async (inv) => {
-          const basePrice = inv.product.basePrice;
-          const currentPrice = Number(inv.currentPrice);
-          const surgeMultiplier =
-            basePrice > 0
-              ? parseFloat((currentPrice / basePrice).toFixed(4))
-              : 1.0;
-          const confidence = confidenceByProduct.get(inv.productId) ?? 0;
+      const storeAgg = inventory.map((inv) => {
+        const basePrice = inv.product.basePrice;
+        const mrp = inv.product.mrp;
+        const currentPrice = Number(inv.currentPrice);
 
-          // --- Epsilon-skip cached Gemini explanation, rate-limited per tick ---
-          let explanation: string | null = null;
-          const cacheKey = CacheKeys.explanation(storeId, inv.productId);
+        // Session 27 (Bug 1 fix): use the real surgeMultiplier captured
+        // from the pricing engine above. Fall back to the old ratio
+        // calculation only if this product somehow wasn't in the Map
+        // (e.g. an inventory row with no matching computeSuggestedPrice
+        // call this tick) so we never end up with no value at all.
+        const surgeMultiplier =
+          surgeMultiplierByProduct.get(inv.productId) ??
+          (basePrice > 0
+            ? parseFloat((currentPrice / basePrice).toFixed(4))
+            : 1.0);
 
-          try {
-            const cachedRaw = await redis.get(cacheKey);
-            const cached = cachedRaw
-              ? (JSON.parse(cachedRaw) as {
-                  explanation: string;
-                  lastPrice: number;
-                })
-              : null;
+        const confidence = confidenceByProduct.get(inv.productId) ?? 0;
+        const cappedAtMrp = cappedAtMrpByProduct.get(inv.productId) ?? false;
 
-            if (
-              cached &&
-              Math.abs(cached.lastPrice - currentPrice) < EXPLANATION_EPSILON
-            ) {
-              explanation = cached.explanation;
-            } else if (geminiCallsUsedThisTick >= MAX_GEMINI_CALLS_PER_TICK) {
-              // Rate-limit budget exhausted this tick — reuse stale cache if any, else skip
-              explanation = cached?.explanation ?? null;
-            } else {
-              geminiCallsUsedThisTick++; // reserve the slot before awaiting
-              const generated = await generatePriceExplanation({
-                productName: inv.product.name,
-                storeName: store?.name ?? storeId,
-                basePrice,
-                currentPrice,
-                surgeMultiplier,
-                confidence,
-              });
+        // Session 27+ (Gemini removed): explanation is built instantly,
+        // directly from these same values — always accurate, never stale.
+        const explanation = buildExplanation({
+          productName: inv.product.name,
+          basePrice,
+          currentPrice,
+          cappedAtMrp,
+          confidence,
+        });
 
-              if (generated) {
-                explanation = generated;
-                await redis.set(
-                  cacheKey,
-                  JSON.stringify({
-                    explanation: generated,
-                    lastPrice: currentPrice,
-                  }),
-                );
-              } else if (cached) {
-                // Gemini failed this round — fall back to stale cached value rather than nothing
-                explanation = cached.explanation;
-              }
-            }
-          } catch (err) {
-            console.error(
-              `[DemandLoop] Explanation cache error for ${inv.productId}:`,
-              err,
-            );
-          }
-
-          return {
-            productId: inv.productId,
-            productName: inv.product.name,
-            sku: inv.product.sku,
-            basePrice,
-            currentPrice,
-            surgeMultiplier,
-            confidence,
-            explanation,
-            stockQuantity: inv.quantityOnHand,
-            stockStatus: deriveStockStatus(
-              inv.quantityOnHand,
-              inv.reorderLevel,
-            ),
-            updatedAt: inv.updatedAt.toISOString(),
-          };
-        }),
-      );
+        return {
+          productId: inv.productId,
+          productName: inv.product.name,
+          sku: inv.product.sku,
+          basePrice,
+          mrp,
+          cappedAtMrp,
+          currentPrice,
+          surgeMultiplier,
+          confidence,
+          explanation,
+          stockQuantity: inv.quantityOnHand,
+          stockStatus: deriveStockStatus(
+            inv.quantityOnHand,
+            inv.reorderLevel,
+          ),
+          updatedAt: inv.updatedAt.toISOString(),
+        };
+      });
 
       await redis.setex(
         CacheKeys.storePrice(storeId),
@@ -208,8 +206,15 @@ export function startDemandIngestionLoop(): void {
     console.warn("[DemandLoop] Already running");
     return;
   }
+
+  // Session 27 (restart-replay fix): re-confirm the cursor starts at "now"
+  // at the moment the loop actually starts, not just at module-load time —
+  // covers the (unlikely but possible) case where the module was loaded
+  // some time before the server actually starts listening.
+  highWaterMark = new Date();
+
   console.log(
-    `[DemandLoop] Starting — polling every ${POLL_INTERVAL_MS / 1000}s`,
+    `[DemandLoop] Starting — polling every ${POLL_INTERVAL_MS / 1000}s (ignoring any DemandEvents older than ${highWaterMark.toISOString()})`,
   );
   // Run immediately, then on interval
   tick();

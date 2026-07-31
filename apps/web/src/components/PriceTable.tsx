@@ -13,7 +13,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info } from "lucide-react";
+import { Info, Lock } from "lucide-react";
 import type { PriceEntry } from "@/hooks/usePriceStream";
 import { useAnimatedNumber } from "@/hooks/useAnimatedNumber";
 
@@ -68,13 +68,17 @@ function AnimatedConfidence({ value }: { value: number }) {
 
 type GlowDirection = "up" | "down";
 
-// Snapshot of everything that should change together, in sync with the
-// price roll animation — confidence + surge multiplier now travel with
-// the price instead of updating instantly ahead of it (Session 27 fix).
 interface DisplaySnapshot {
   price: number;
   confidence: number;
   surgeMultiplier: number;
+  cappedAtMrp: boolean;
+}
+
+interface TrackedSnapshot {
+  price: number;
+  surgeMultiplier: number;
+  cappedAtMrp: boolean;
 }
 
 interface QueueItem {
@@ -84,13 +88,11 @@ interface QueueItem {
 }
 
 export function PriceTable({ prices }: PriceTableProps) {
-  const prevPricesRef = useRef<Record<string, number>>({});
+  const prevSnapshotRef = useRef<Record<string, TrackedSnapshot>>({});
   const queueRef = useRef<QueueItem[]>([]);
   const processingRef = useRef(false);
   const [glowMap, setGlowMap] = useState<Record<string, GlowDirection>>({});
-  const [displayData, setDisplayData] = useState<
-    Record<string, DisplaySnapshot>
-  >({});
+  const [displayData, setDisplayData] = useState<Record<string, DisplaySnapshot>>({});
 
   function processNext() {
     if (processingRef.current) return;
@@ -101,8 +103,6 @@ export function PriceTable({ prices }: PriceTableProps) {
     setGlowMap({ [next.productId]: next.direction });
 
     setTimeout(() => {
-      // Price, confidence, and surge multiplier all update together here —
-      // this is the single moment everything visually changes at once.
       setDisplayData((d) => ({ ...d, [next.productId]: next.target }));
 
       setTimeout(() => {
@@ -114,22 +114,27 @@ export function PriceTable({ prices }: PriceTableProps) {
   }
 
   useEffect(() => {
-    const prevPrices = prevPricesRef.current;
-    const isFirstRun = Object.keys(prevPrices).length === 0;
+    const prevSnapshots = prevSnapshotRef.current;
+    const isFirstRun = Object.keys(prevSnapshots).length === 0;
 
-    const nextPrices: Record<string, number> = {};
+    const nextSnapshots: Record<string, TrackedSnapshot> = {};
     Object.values(prices).forEach((entry) => {
-      nextPrices[entry.productId] = entry.surgePrice;
+      nextSnapshots[entry.productId] = {
+        price: entry.surgePrice,
+        surgeMultiplier: entry.surgeMultiplier,
+        cappedAtMrp: entry.cappedAtMrp,
+      };
     });
 
     if (isFirstRun) {
-      prevPricesRef.current = nextPrices;
+      prevSnapshotRef.current = nextSnapshots;
       const initialData: Record<string, DisplaySnapshot> = {};
       Object.values(prices).forEach((entry) => {
         initialData[entry.productId] = {
           price: entry.surgePrice,
           confidence: entry.confidence,
           surgeMultiplier: entry.surgeMultiplier,
+          cappedAtMrp: entry.cappedAtMrp,
         };
       });
       setDisplayData(initialData);
@@ -137,14 +142,27 @@ export function PriceTable({ prices }: PriceTableProps) {
     }
 
     Object.values(prices).forEach((entry) => {
-      const prev = prevPrices[entry.productId];
-      if (prev !== undefined && prev !== entry.surgePrice) {
+      const prev = prevSnapshots[entry.productId];
+      if (prev === undefined) return;
+
+      const changed =
+        prev.price !== entry.surgePrice ||
+        prev.surgeMultiplier !== entry.surgeMultiplier ||
+        prev.cappedAtMrp !== entry.cappedAtMrp;
+
+      if (changed) {
         const direction: GlowDirection =
-          entry.surgePrice > prev ? "up" : "down";
+          entry.surgePrice > prev.price
+            ? "up"
+            : entry.surgePrice < prev.price
+              ? "down"
+              : "up";
+
         const target: DisplaySnapshot = {
           price: entry.surgePrice,
           confidence: entry.confidence,
           surgeMultiplier: entry.surgeMultiplier,
+          cappedAtMrp: entry.cappedAtMrp,
         };
         const existingIndex = queueRef.current.findIndex(
           (q) => q.productId === entry.productId,
@@ -162,7 +180,7 @@ export function PriceTable({ prices }: PriceTableProps) {
       }
     });
 
-    prevPricesRef.current = nextPrices;
+    prevSnapshotRef.current = nextSnapshots;
     processNext();
   }, [prices]);
 
@@ -197,6 +215,7 @@ export function PriceTable({ prices }: PriceTableProps) {
             price: entry.surgePrice,
             confidence: entry.confidence,
             surgeMultiplier: entry.surgeMultiplier,
+            cappedAtMrp: entry.cappedAtMrp,
           };
           return (
             <TableRow
@@ -215,6 +234,24 @@ export function PriceTable({ prices }: PriceTableProps) {
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-1.5">
                   <AnimatedPrice value={snapshot.price} />
+                  {snapshot.cappedAtMrp && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge className="bg-muted text-foreground border border-border flex items-center gap-1 px-1.5 py-0 text-[10px]">
+                          <Lock className="h-2.5 w-2.5" />
+                          MRP
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p>
+                          Price capped at ₹{entry.mrp.toFixed(2)} — India's
+                          legal Maximum Retail Price for this product. Demand
+                          would have pushed it higher, but MRP can never be
+                          exceeded.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
                   {entry.explanation && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -231,7 +268,9 @@ export function PriceTable({ prices }: PriceTableProps) {
                 {getSurgeBadge(snapshot.surgeMultiplier)}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm text-center">
-                {getReason(snapshot.surgeMultiplier)}
+                {snapshot.cappedAtMrp
+                  ? "Capped at MRP"
+                  : getReason(snapshot.surgeMultiplier)}
               </TableCell>
               <TableCell className="text-center">
                 <div className="flex items-center justify-center gap-2">

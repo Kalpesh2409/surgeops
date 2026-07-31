@@ -48,7 +48,8 @@ model Product {
   sku         String   @unique
   name        String
   description String?
-  basePrice   Float // ₹ — floor price
+  basePrice   Float // ₹ — internal starting/floor price
+  mrp         Float    @default(0) // ₹ — legal Maximum Retail Price (India). Final price can NEVER exceed this, regardless of any other guardrail. Session 27 addition.
   unit        String   @default("piece") // piece | kg | litre
   weightGrams Int?
   imageUrl    String?

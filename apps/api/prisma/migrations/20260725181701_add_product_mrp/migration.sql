@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "products" ADD COLUMN     "mrp" DOUBLE PRECISION NOT NULL DEFAULT 0;

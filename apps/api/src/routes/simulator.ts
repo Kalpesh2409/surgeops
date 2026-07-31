@@ -45,6 +45,10 @@ router.post("/stop", (_req: Request, res: Response) => {
  * Does NOT create the DemandEvent row or invalidate cache — callers
  * handle that, since /demo-ramp needs to batch those steps differently
  * (e.g. one DemandEvent per product, not per stage).
+ *
+ * Session 27: now also passes through cappedAtMrp from the pricing engine,
+ * so writePriceUpdates() can record/broadcast when a price hit its legal
+ * MRP ceiling instead of reflecting the full calculated surge.
  */
 async function injectForProduct(
   storeId: string,
@@ -58,6 +62,7 @@ async function injectForProduct(
   confidence: number;
   usedMlBaseline: boolean;
   reasoning: string;
+  cappedAtMrp: boolean;
 } | null> {
   const deductionCount = Math.min(Math.round(effectiveMultiplier * 2), 15);
 
@@ -116,6 +121,7 @@ async function injectForProduct(
       confidence: result.confidence,
       usedMlBaseline: result.usedMlBaseline,
       reasoning: result.reasoning,
+      cappedAtMrp: result.cappedAtMrp,
     };
   } catch (err) {
     console.error(
@@ -409,6 +415,11 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
  * SSE for every restored product, same as /inject and /demo-ramp already
  * do — otherwise the reset only changes the database, and the live
  * dashboard doesn't visually update until the page is manually refreshed.
+ *
+ * Session 27 (MRP pass): broadcast now also includes mrp + cappedAtMrp so
+ * the frontend can display those fields consistently after a reset (always
+ * false/uncapped immediately after a reset, since prices go back to their
+ * Day 1 baseline values, which by design never exceed MRP).
  */
 router.post("/reset/:storeId", async (req: Request, res: Response) => {
   const { storeId } = req.params;
@@ -426,11 +437,13 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
 
     // Fetch current inventory + product info BEFORE resetting, so we know
     // each product's "before" quantity for the stock-update broadcast, and
-    // have name/sku/basePrice on hand for the price-update broadcast.
+    // have name/sku/basePrice/mrp on hand for the price-update broadcast.
     const inventoryBefore = await prisma.inventory.findMany({
       where: { storeId },
       include: {
-        product: { select: { id: true, name: true, sku: true, basePrice: true } },
+        product: {
+          select: { id: true, name: true, sku: true, basePrice: true, mrp: true },
+        },
       },
     });
     const beforeByProduct = new Map(inventoryBefore.map((i) => [i.productId, i]));
@@ -464,9 +477,11 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
               productName: before.product.name,
               sku: before.product.sku,
               basePrice: before.product.basePrice,
+              mrp: before.product.mrp,
               currentPrice: entry.currentPrice,
               surgeMultiplier: 1.0,
               confidence: 0,
+              cappedAtMrp: false,
               explanation: null,
               updatedAt: nowIso,
             },
@@ -533,5 +548,3 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
 });
 
 export default router;
-
-

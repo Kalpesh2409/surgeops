@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { getRedis, CacheKeys } from "../lib/redisClient";
 import { broadcast } from "../lib/sseManager";
+import { buildExplanation } from "./explanationBuilder";
 
 const prisma = new PrismaClient();
 
@@ -10,6 +11,7 @@ export interface PriceUpdate {
   currentPrice: number;
   surgeMultiplier: number;
   confidence: number;
+  cappedAtMrp?: boolean;
 }
 
 const EPSILON = 0.01;
@@ -19,15 +21,21 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
   const redis = getRedis();
 
   for (const update of updates) {
-    const { storeId, productId, currentPrice, surgeMultiplier, confidence } =
-      update;
+    const {
+      storeId,
+      productId,
+      currentPrice,
+      surgeMultiplier,
+      confidence,
+      cappedAtMrp = false,
+    } = update;
 
     const existing = await prisma.inventory.findFirst({
       where: { storeId, productId },
       select: {
         id: true,
         currentPrice: true,
-        product: { select: { name: true, sku: true, basePrice: true } },
+        product: { select: { name: true, sku: true, basePrice: true, mrp: true } },
       },
     });
 
@@ -38,24 +46,25 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       continue;
     }
 
-    const { name: productName, sku, basePrice } = existing.product;
-
-    // Look up any previously-cached explanation (no TTL — persists across ticks)
-    let explanation: string | null = null;
-    try {
-      const cachedExplanationRaw = await redis.get(
-        CacheKeys.explanation(storeId, productId),
-      );
-      if (cachedExplanationRaw) {
-        explanation = (JSON.parse(cachedExplanationRaw) as { explanation: string }).explanation;
-      }
-    } catch (err) {
-      console.error(`[PriceWriter] Explanation lookup error for ${productId}:`, err);
-    }
+    const { name: productName, sku, basePrice, mrp } = existing.product;
 
     const delta = Math.abs(currentPrice - Number(existing.currentPrice));
-    if (delta < EPSILON) {
-      // Price change too small — still refresh cache TTL
+    // Session 27 fix: an MRP-capped price often lands exactly back at the
+    // same number it started at (common when mrp == basePrice), which used
+    // to get silently skipped by this epsilon-skip shortcut — hiding the
+    // "capped" badge from the live dashboard even though capping genuinely
+    // happened. Now: always proceed past the skip when cappedAtMrp is true.
+    if (delta < EPSILON && !cappedAtMrp) {
+      // Price change too small — still refresh cache TTL. Explanation is
+      // computed fresh here too (cheap, deterministic — no cache needed).
+      const explanation = buildExplanation({
+        productName,
+        basePrice,
+        currentPrice: Number(existing.currentPrice),
+        cappedAtMrp,
+        confidence,
+      });
+
       await redis.setex(
         CacheKeys.productPrice(storeId, productId),
         60,
@@ -64,6 +73,8 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
           surgeMultiplier,
           confidence,
           basePrice,
+          mrp,
+          cappedAtMrp,
           explanation,
           updatedAt: new Date().toISOString(),
           source: "epsilon-skip",
@@ -90,12 +101,26 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       },
     });
 
+    // Session 27+ (Gemini removed): explanation is now built instantly from
+    // the same numbers we're already writing — no external API call, no
+    // cache lookup, no staleness to worry about. It is always guaranteed to
+    // match the price and reason being written in this same update.
+    const explanation = buildExplanation({
+      productName,
+      basePrice,
+      currentPrice,
+      cappedAtMrp,
+      confidence,
+    });
+
     // --- Redis cache write (TTL 60s) ---
     const cachePayload = {
       currentPrice,
       surgeMultiplier,
       confidence,
       basePrice,
+      mrp,
+      cappedAtMrp,
       explanation,
       updatedAt: new Date().toISOString(),
     };
@@ -107,7 +132,8 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
 
     console.log(
       `[PriceWriter] Updated price for store=${storeId} product=${productId} ` +
-        `price=₹${currentPrice} multiplier=${surgeMultiplier.toFixed(2)} [DB+Cache] setex=${result}`,
+        `price=₹${currentPrice} multiplier=${surgeMultiplier.toFixed(2)}` +
+        `${cappedAtMrp ? " [CAPPED AT MRP]" : ""} [DB+Cache] setex=${result}`,
     );
 
     // ── SSE broadcast ──────────────────────────────────────────────────
@@ -116,9 +142,11 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       productName,
       sku,
       basePrice,
+      mrp,
       currentPrice,
       surgeMultiplier,
       confidence,
+      cappedAtMrp,
       explanation,
       updatedAt: new Date().toISOString(),
     });

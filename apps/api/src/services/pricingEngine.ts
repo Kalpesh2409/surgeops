@@ -21,6 +21,15 @@
  * floorPrice/ceilPrice still apply as the absolute final safety net on the
  * resulting price regardless of source.
  *
+ * MRP CAP (Session 27): added a final, absolute, non-negotiable price ceiling
+ * based on each product's real-world Indian MRP (Maximum Retail Price).
+ * Unlike floorPrice/ceilPrice (business guardrails we set ourselves), MRP is
+ * a legal constraint — the final price can NEVER exceed it, regardless of
+ * what the ML baseline, surge adjustment, or rule guardrails decided. This
+ * check happens last, after everything else. The surgeMultiplier value is
+ * NOT recalculated after capping — it still reflects the true underlying
+ * demand signal, even when the final ₹ price couldn't fully express it.
+ *
  * No paid APIs — pure rules-based + locally trained ML logic.
  */
 
@@ -46,6 +55,7 @@ export interface PricingResult {
   reasoning: string;
   hasRule: boolean;
   usedMlBaseline: boolean;
+  cappedAtMrp: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -165,7 +175,7 @@ export async function computeSuggestedPrice(
 ): Promise<PricingResult> {
   const { storeId, productId } = input;
 
-  // 1. Load inventory (current price + product base price)
+  // 1. Load inventory (current price + product base price + MRP)
   const inventory = await prisma.inventory.findUnique({
     where: { storeId_productId: { storeId, productId } },
     include: { product: true },
@@ -179,6 +189,7 @@ export async function computeSuggestedPrice(
 
   const basePrice = inventory.product.basePrice;
   const currentPrice = inventory.currentPrice;
+  const mrp = inventory.product.mrp;
 
   // 2. Load pricing rule (optional — may not exist for every store×product)
   const rule = await prisma.pricingRule.findUnique({
@@ -270,6 +281,19 @@ export async function computeSuggestedPrice(
 
   const confidence = computeConfidence(events.length, demandScore);
 
+  // ── MRP cap — the absolute, non-negotiable final check (Session 27) ─────────
+  // No matter what the ML baseline, live surge adjustment, or rule guardrails
+  // decided, the final price can NEVER exceed the product's legal MRP. This
+  // is the very last check, after everything else, on purpose. Note:
+  // surgeMultiplier is NOT recalculated here — it still reflects the true
+  // demand signal, even when the final ₹ price can't fully express it.
+  let cappedAtMrp = false;
+  if (mrp > 0 && suggestedPrice > mrp) {
+    suggestedPrice = mrp;
+    cappedAtMrp = true;
+    reasoning += ` | capped at MRP ₹${mrp.toFixed(2)}`;
+  }
+
   return {
     storeId,
     productId,
@@ -281,5 +305,6 @@ export async function computeSuggestedPrice(
     reasoning,
     hasRule: !!rule,
     usedMlBaseline,
+    cappedAtMrp,
   };
 }

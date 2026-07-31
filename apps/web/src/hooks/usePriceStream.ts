@@ -9,6 +9,8 @@ export interface PriceEntry {
   productName: string;
   sku: string;
   basePrice: number;
+  mrp: number;
+  cappedAtMrp: boolean;
   surgePrice: number;
   surgeMultiplier: number;
   confidence: number;
@@ -74,6 +76,8 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
             productName: (p as any).productName ?? p.productId,
             sku: (p as any).sku ?? p.productId,
             basePrice: (p as any).basePrice ?? (p as any).currentPrice,
+            mrp: (p as any).mrp ?? 0,
+            cappedAtMrp: (p as any).cappedAtMrp ?? false,
             surgePrice: (p as any).currentPrice,
             surgeMultiplier: (p as any).surgeMultiplier ?? 1.0,
             confidence: (p as any).confidence ?? 0,
@@ -112,6 +116,8 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
         productName: raw.productName ?? raw.productId,
         sku: raw.sku ?? raw.productId,
         basePrice: raw.basePrice ?? raw.currentPrice,
+        mrp: raw.mrp ?? 0,
+        cappedAtMrp: raw.cappedAtMrp ?? false,
         surgePrice: raw.currentPrice,
         surgeMultiplier: raw.surgeMultiplier,
         confidence: raw.confidence,

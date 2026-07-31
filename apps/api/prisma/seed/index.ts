@@ -99,34 +99,77 @@ async function main() {
   console.log(`  ✅ ${categories.length} categories created\n`);
 
   // ─── PRODUCTS ─────────────────────────────────────────────────────────────
+  // Session 27 addition: added realistic Indian MRP (Maximum Retail Price)
+  // values, researched against real-world retail listings. For these FMCG
+  // categories, mrp == basePrice — there's normally no gap between shelf
+  // price and printed MRP for everyday packaged groceries/snacks/beverages.
+  // Six products had unrealistic basePrice values corrected in this pass:
+  // Tata Salt, Fortune Oil, Lay's Chips, Parle-G, Kurkure, Amul Butter,
+  // Maggi (family pack), MTR Poha.
   console.log('🛍️  Seeding products...');
 
-  const products = await Promise.all([
+  type ProductSeed = {
+    id: string;
+    sku: string;
+    name: string;
+    categoryId: string;
+    basePrice: number;
+    mrp: number;
+    unit: string;
+    weightGrams: number;
+  };
+
+  const productSeeds: ProductSeed[] = [
     // GROCERY & STAPLES
-    prisma.product.upsert({ where: { sku: 'GRC-SALT-1KG'  }, update: {}, create: { id: 'prod-tata-salt',        sku: 'GRC-SALT-1KG',  name: 'Tata Salt',                         categoryId: 'cat-grocery',   basePrice: 24.00,  unit: 'piece', weightGrams: 1000, isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'GRC-OIL-1L'    }, update: {}, create: { id: 'prod-fortune-oil',      sku: 'GRC-OIL-1L',    name: 'Fortune Sunflower Oil',             categoryId: 'cat-grocery',   basePrice: 145.00, unit: 'litre', weightGrams: 900,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'GRC-ATTA-5KG'  }, update: {}, create: { id: 'prod-aashirvaad-atta',  sku: 'GRC-ATTA-5KG',  name: 'Aashirvaad Whole Wheat Atta',       categoryId: 'cat-grocery',   basePrice: 285.00, unit: 'kg',    weightGrams: 5000, isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'GRC-RICE-5KG'  }, update: {}, create: { id: 'prod-india-gate-rice',  sku: 'GRC-RICE-5KG',  name: 'India Gate Basmati Rice',           categoryId: 'cat-grocery',   basePrice: 520.00, unit: 'kg',    weightGrams: 5000, isActive: true } }),
+    { id: 'prod-tata-salt',        sku: 'GRC-SALT-1KG',   name: 'Tata Salt',                         categoryId: 'cat-grocery',   basePrice: 28.00,  mrp: 28.00,  unit: 'piece', weightGrams: 1000 },
+    { id: 'prod-fortune-oil',      sku: 'GRC-OIL-1L',     name: 'Fortune Sunflower Oil',              categoryId: 'cat-grocery',   basePrice: 155.00, mrp: 155.00, unit: 'litre', weightGrams: 900 },
+    { id: 'prod-aashirvaad-atta',  sku: 'GRC-ATTA-5KG',   name: 'Aashirvaad Whole Wheat Atta',        categoryId: 'cat-grocery',   basePrice: 285.00, mrp: 285.00, unit: 'kg',    weightGrams: 5000 },
+    { id: 'prod-india-gate-rice',  sku: 'GRC-RICE-5KG',   name: 'India Gate Basmati Rice',            categoryId: 'cat-grocery',   basePrice: 549.00, mrp: 549.00, unit: 'kg',    weightGrams: 5000 },
     // SNACKS & NAMKEEN
-    prisma.product.upsert({ where: { sku: 'SNK-LAYS-26G'  }, update: {}, create: { id: 'prod-lays-classic',     sku: 'SNK-LAYS-26G',  name: "Lay's Classic Salted Chips",        categoryId: 'cat-snacks',    basePrice: 20.00,  unit: 'piece', weightGrams: 26,   isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'SNK-HALD-200G' }, update: {}, create: { id: 'prod-haldiram-bhujia',  sku: 'SNK-HALD-200G', name: 'Haldiram Aloo Bhujia',              categoryId: 'cat-snacks',    basePrice: 85.00,  unit: 'piece', weightGrams: 200,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'SNK-PRLG-200G' }, update: {}, create: { id: 'prod-parle-g',          sku: 'SNK-PRLG-200G', name: 'Parle-G Original Glucose Biscuits', categoryId: 'cat-snacks',    basePrice: 30.00,  unit: 'piece', weightGrams: 200,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'SNK-KURK-90G'  }, update: {}, create: { id: 'prod-kurkure-masala',   sku: 'SNK-KURK-90G',  name: 'Kurkure Masala Munch',              categoryId: 'cat-snacks',    basePrice: 30.00,  unit: 'piece', weightGrams: 90,   isActive: true } }),
+    { id: 'prod-lays-classic',     sku: 'SNK-LAYS-26G',   name: "Lay's Classic Salted Chips",         categoryId: 'cat-snacks',    basePrice: 10.00,  mrp: 10.00,  unit: 'piece', weightGrams: 26 },
+    { id: 'prod-haldiram-bhujia',  sku: 'SNK-HALD-200G',  name: 'Haldiram Aloo Bhujia',               categoryId: 'cat-snacks',    basePrice: 85.00,  mrp: 85.00,  unit: 'piece', weightGrams: 200 },
+    { id: 'prod-parle-g',          sku: 'SNK-PRLG-200G',  name: 'Parle-G Original Glucose Biscuits',  categoryId: 'cat-snacks',    basePrice: 22.00,  mrp: 22.00,  unit: 'piece', weightGrams: 200 },
+    { id: 'prod-kurkure-masala',   sku: 'SNK-KURK-90G',   name: 'Kurkure Masala Munch',               categoryId: 'cat-snacks',    basePrice: 20.00,  mrp: 20.00,  unit: 'piece', weightGrams: 90 },
     // BEVERAGES
-    prisma.product.upsert({ where: { sku: 'BEV-COKE-250ML'}, update: {}, create: { id: 'prod-coca-cola-250',    sku: 'BEV-COKE-250ML',name: 'Coca-Cola',                         categoryId: 'cat-beverages', basePrice: 20.00,  unit: 'litre', weightGrams: 250,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'BEV-TROP-1L'   }, update: {}, create: { id: 'prod-tropicana-orange', sku: 'BEV-TROP-1L',   name: 'Tropicana Orange Juice',            categoryId: 'cat-beverages', basePrice: 120.00, unit: 'litre', weightGrams: 1000, isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'BEV-BISL-1L'   }, update: {}, create: { id: 'prod-bisleri-water',    sku: 'BEV-BISL-1L',   name: 'Bisleri Mineral Water',             categoryId: 'cat-beverages', basePrice: 20.00,  unit: 'litre', weightGrams: 1000, isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'BEV-RBUL-250ML'}, update: {}, create: { id: 'prod-redbull',          sku: 'BEV-RBUL-250ML',name: 'Red Bull Energy Drink',             categoryId: 'cat-beverages', basePrice: 125.00, unit: 'litre', weightGrams: 250,  isActive: true } }),
+    { id: 'prod-coca-cola-250',    sku: 'BEV-COKE-250ML', name: 'Coca-Cola',                          categoryId: 'cat-beverages', basePrice: 20.00,  mrp: 20.00,  unit: 'litre', weightGrams: 250 },
+    { id: 'prod-tropicana-orange', sku: 'BEV-TROP-1L',    name: 'Tropicana Orange Juice',             categoryId: 'cat-beverages', basePrice: 120.00, mrp: 120.00, unit: 'litre', weightGrams: 1000 },
+    { id: 'prod-bisleri-water',    sku: 'BEV-BISL-1L',    name: 'Bisleri Mineral Water',              categoryId: 'cat-beverages', basePrice: 20.00,  mrp: 20.00,  unit: 'litre', weightGrams: 1000 },
+    { id: 'prod-redbull',          sku: 'BEV-RBUL-250ML', name: 'Red Bull Energy Drink',              categoryId: 'cat-beverages', basePrice: 125.00, mrp: 125.00, unit: 'litre', weightGrams: 250 },
     // DAIRY & EGGS
-    prisma.product.upsert({ where: { sku: 'DRY-AMUL-500ML'}, update: {}, create: { id: 'prod-amul-milk',        sku: 'DRY-AMUL-500ML',name: 'Amul Taaza Full Cream Milk',        categoryId: 'cat-dairy',     basePrice: 31.00,  unit: 'litre', weightGrams: 500,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'DRY-AMBL-100G' }, update: {}, create: { id: 'prod-amul-butter',      sku: 'DRY-AMBL-100G', name: 'Amul Butter',                       categoryId: 'cat-dairy',     basePrice: 57.00,  unit: 'piece', weightGrams: 100,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'DRY-EGGS-12'   }, update: {}, create: { id: 'prod-eggs-dozen',       sku: 'DRY-EGGS-12',   name: 'Farm Fresh Eggs',                   categoryId: 'cat-dairy',     basePrice: 95.00,  unit: 'piece', weightGrams: 720,  isActive: true } }),
+    { id: 'prod-amul-milk',        sku: 'DRY-AMUL-500ML', name: 'Amul Taaza Full Cream Milk',         categoryId: 'cat-dairy',     basePrice: 30.00,  mrp: 30.00,  unit: 'litre', weightGrams: 500 },
+    { id: 'prod-amul-butter',      sku: 'DRY-AMBL-100G',  name: 'Amul Butter',                        categoryId: 'cat-dairy',     basePrice: 62.00,  mrp: 62.00,  unit: 'piece', weightGrams: 100 },
+    { id: 'prod-eggs-dozen',       sku: 'DRY-EGGS-12',    name: 'Farm Fresh Eggs',                    categoryId: 'cat-dairy',     basePrice: 95.00,  mrp: 95.00,  unit: 'piece', weightGrams: 720 },
     // INSTANT FOOD
-    prisma.product.upsert({ where: { sku: 'INS-MAGG-560G' }, update: {}, create: { id: 'prod-maggi-masala',     sku: 'INS-MAGG-560G', name: 'Maggi 2-Minute Masala Noodles',     categoryId: 'cat-instant',   basePrice: 84.00,  unit: 'piece', weightGrams: 560,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'INS-YIPP-240G' }, update: {}, create: { id: 'prod-yippee-noodles',   sku: 'INS-YIPP-240G', name: 'Sunfeast Yippee Noodles',           categoryId: 'cat-instant',   basePrice: 60.00,  unit: 'piece', weightGrams: 240,  isActive: true } }),
-    prisma.product.upsert({ where: { sku: 'INS-MTR-500G'  }, update: {}, create: { id: 'prod-mtr-poha',         sku: 'INS-MTR-500G',  name: 'MTR Poha Breakfast Mix',            categoryId: 'cat-instant',   basePrice: 119.00, unit: 'piece', weightGrams: 500,  isActive: true } }),
-  ]);
-  console.log(`  ✅ ${products.length} products created\n`);
+    { id: 'prod-maggi-masala',     sku: 'INS-MAGG-560G',  name: 'Maggi 2-Minute Masala Noodles',      categoryId: 'cat-instant',   basePrice: 112.00, mrp: 112.00, unit: 'piece', weightGrams: 560 },
+    { id: 'prod-yippee-noodles',   sku: 'INS-YIPP-240G',  name: 'Sunfeast Yippee Noodles',            categoryId: 'cat-instant',   basePrice: 65.00,  mrp: 65.00,  unit: 'piece', weightGrams: 240 },
+    { id: 'prod-mtr-poha',         sku: 'INS-MTR-500G',   name: 'MTR Poha Breakfast Mix',             categoryId: 'cat-instant',   basePrice: 165.00, mrp: 165.00, unit: 'piece', weightGrams: 500 },
+  ];
+
+  const products = await Promise.all(
+    productSeeds.map((p) =>
+      prisma.product.upsert({
+        where: { sku: p.sku },
+        update: {
+          basePrice: p.basePrice,
+          mrp: p.mrp,
+          unit: p.unit,
+          weightGrams: p.weightGrams,
+        },
+        create: {
+          id: p.id,
+          sku: p.sku,
+          name: p.name,
+          categoryId: p.categoryId,
+          basePrice: p.basePrice,
+          mrp: p.mrp,
+          unit: p.unit,
+          weightGrams: p.weightGrams,
+          isActive: true,
+        },
+      }),
+    ),
+  );
+  console.log(`  ✅ ${products.length} products created/updated\n`);
 
   // ─── INVENTORY ─────────────────────────────────────────────────────────────
   // Schema fields: quantityOnHand, reorderLevel, reorderQty, currentPrice
