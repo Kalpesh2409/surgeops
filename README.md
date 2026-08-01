@@ -2,12 +2,6 @@
 
 [![CI](https://github.com/Kalpesh2409/surgeops/actions/workflows/ci.yml/badge.svg)](https://github.com/Kalpesh2409/surgeops/actions/workflows/ci.yml)
 
-## Live Demo
-
-- **Web app:** [surgeops-web.onrender.com](https://surgeops-web.onrender.com)
-- **API health check:** [surgeops-api.onrender.com/health](https://surgeops-api.onrender.com/health)
-
-> Built and deployed entirely on free-tier infrastructure (₹0 budget, by design). The backend may take up to 50 seconds to wake up on first load after inactivity — a deliberate trade-off, not a bug.
 
 ## Demo
 
