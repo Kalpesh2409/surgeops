@@ -36,12 +36,64 @@ router.post("/stop", (_req: Request, res: Response) => {
 });
 
 /**
+ * recordSimulatedSale — Session 29 addition.
+ *
+ * Writes one Order + one OrderItem row for a simulated sale, using the
+ * SAME tables a future real customer-facing ordering app will write to.
+ * The simulator is "pretending to be customers" using the real data
+ * structure, so no rework is needed later.
+ *
+ * Uses the price the product was at BEFORE this injection's price
+ * recompute — i.e. the price a real customer would have actually paid
+ * to cause this demand event.
+ *
+ * Skips recording entirely if quantity is 0 (nothing was actually sold —
+ * e.g. stock was already empty), so we never create junk ₹0 sales rows.
+ */
+async function recordSimulatedSale(
+  storeId: string,
+  productId: string,
+  quantity: number,
+  unitPrice: number,
+): Promise<void> {
+  if (quantity <= 0) return;
+
+  const subtotal = unitPrice * quantity;
+
+  try {
+    await prisma.order.create({
+      data: {
+        storeId,
+        status: "DELIVERED",
+        totalAmount: subtotal,
+        completedAt: new Date(),
+        items: {
+          create: {
+            productId,
+            quantity,
+            unitPrice,
+            subtotal,
+          },
+        },
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[Simulator] recordSimulatedSale: failed to record sale for product=${productId}`,
+      err,
+    );
+  }
+}
+
+/**
  * injectForProduct — core per-product injection logic, extracted in
  * Session 18 so it can be reused by both /inject (single call) and
  * /demo-ramp (scripted multi-step spike sequence).
  *
- * Deducts stock proportional to the injected demand, recomputes price
- * via the pricing engine, and broadcasts stock + price updates over SSE.
+ * Deducts stock proportional to the injected demand, records the
+ * simulated sale as a real Order/OrderItem (Session 29), recomputes
+ * price via the pricing engine, and broadcasts stock + price updates
+ * over SSE.
  * Does NOT create the DemandEvent row or invalidate cache — callers
  * handle that, since /demo-ramp needs to batch those steps differently
  * (e.g. one DemandEvent per product, not per stage).
@@ -88,6 +140,15 @@ async function injectForProduct(
       );
       return null;
     });
+
+  // Session 29: record this as a real sale, using the price BEFORE the
+  // recompute below — the price a real customer would have actually paid.
+  await recordSimulatedSale(
+    storeId,
+    productId,
+    actualDeducted,
+    inventory.currentPrice,
+  );
 
   broadcast(
     storeId,
@@ -411,6 +472,10 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
  * Redis cache keys. Lets a live demo be reset via one API call — no local
  * terminal, no DB password, ever.
  *
+ * Session 29: does NOT touch Order/OrderItem — those are real sales
+ * history for analytics, not "live demo state" like DemandEvents/
+ * PricingSuggestions are, so a reset never deletes them.
+ *
  * Session 27 follow-up: also broadcasts price-update + stock-update over
  * SSE for every restored product, same as /inject and /demo-ramp already
  * do — otherwise the reset only changes the database, and the live
@@ -442,11 +507,19 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
       where: { storeId },
       include: {
         product: {
-          select: { id: true, name: true, sku: true, basePrice: true, mrp: true },
+          select: {
+            id: true,
+            name: true,
+            sku: true,
+            basePrice: true,
+            mrp: true,
+          },
         },
       },
     });
-    const beforeByProduct = new Map(inventoryBefore.map((i) => [i.productId, i]));
+    const beforeByProduct = new Map(
+      inventoryBefore.map((i) => [i.productId, i]),
+    );
 
     // --- Restore inventory to Day 1 values ---
     let restoredCount = 0;
@@ -520,8 +593,12 @@ router.post("/reset/:storeId", async (req: Request, res: Response) => {
     }
 
     // --- Clear simulated history ---
-    const deletedEvents = await prisma.demandEvent.deleteMany({ where: { storeId } });
-    const deletedSuggestions = await prisma.pricingSuggestion.deleteMany({ where: { storeId } });
+    const deletedEvents = await prisma.demandEvent.deleteMany({
+      where: { storeId },
+    });
+    const deletedSuggestions = await prisma.pricingSuggestion.deleteMany({
+      where: { storeId },
+    });
 
     // --- Clear cache ---
     const redis = getRedis();
