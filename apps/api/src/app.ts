@@ -1,4 +1,5 @@
 // src/app.ts
+// Express app configuration, separated from server boot for testability.
 import cors from "cors";
 import express from "express";
 
