@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -31,8 +33,7 @@ export default function Login() {
       localStorage.setItem("surgeops-token", data.token);
       localStorage.setItem("surgeops-user", JSON.stringify(data.user));
 
-      // Temporary — will redirect to a real dashboard page once it exists.
-      alert(`Logged in as ${data.user.name} (${data.user.role})`);
+      navigate("/admin-dashboard");
     } catch (err) {
       console.error(err);
       setError("Something went wrong. Please try again.");
@@ -71,6 +72,7 @@ export default function Login() {
             style={{ color: "white", backgroundColor: "black" }}
           />
         </div>
+
         {error && <p className="text-sm text-red-500">{error}</p>}
 
         <button
