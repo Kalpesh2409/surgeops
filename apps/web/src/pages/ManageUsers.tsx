@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Navbar from "@/components/Navbar";
 
 interface UserRow {
   id: string;
@@ -45,36 +46,39 @@ export default function ManageUsers() {
   }, [apiUrl]);
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <h1 className="text-xl font-bold text-foreground mb-4">Manage Users</h1>
+    <div className="min-h-screen bg-background">
+      <Navbar />
+      <div className="p-6">
+        <h1 className="text-xl font-bold text-foreground mb-4">Manage Users</h1>
 
-      {loading && <p className="text-muted-foreground">Loading...</p>}
-      {error && <p className="text-red-500">{error}</p>}
+        {loading && <p className="text-muted-foreground">Loading...</p>}
+        {error && <p className="text-red-500">{error}</p>}
 
-      {!loading && !error && (
-        <table className="w-full text-sm text-foreground border-collapse">
-          <thead>
-            <tr className="text-left border-b border-border">
-              <th className="py-2 pr-4">Name</th>
-              <th className="py-2 pr-4">Email</th>
-              <th className="py-2 pr-4">Role</th>
-              <th className="py-2 pr-4">Store</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id} className="border-b border-border">
-                <td className="py-2 pr-4">{user.name}</td>
-                <td className="py-2 pr-4">{user.email}</td>
-                <td className="py-2 pr-4">{user.role}</td>
-                <td className="py-2 pr-4">
-                  {user.store ? `${user.store.name} (${user.store.city})` : "—"}
-                </td>
+        {!loading && !error && (
+          <table className="w-full text-sm text-foreground border-collapse">
+            <thead>
+              <tr className="text-left border-b border-border">
+                <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4">Email</th>
+                <th className="py-2 pr-4">Role</th>
+                <th className="py-2 pr-4">Store</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {users.map((user) => (
+                <tr key={user.id} className="border-b border-border">
+                  <td className="py-2 pr-4">{user.name}</td>
+                  <td className="py-2 pr-4">{user.email}</td>
+                  <td className="py-2 pr-4">{user.role}</td>
+                  <td className="py-2 pr-4">
+                    {user.store ? `${user.store.name} (${user.store.city})` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
