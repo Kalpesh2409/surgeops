@@ -1,5 +1,5 @@
 // SurgeOps — Prisma schema
-// Covers: dark stores, products, inventory, orders, pricing rules, demand events
+// Covers: dark stores, products, inventory, orders, pricing rules, demand events, users
 
 generator client {
   provider = "prisma-client-js"
@@ -26,6 +26,7 @@ model Store {
   orders       Order[]
   pricingRules PricingRule[]
   demandEvents DemandEvent[]
+  users        User[]
 
   @@map("stores")
 }
@@ -177,4 +178,32 @@ model PricingSuggestion {
 
   @@index([storeId, productId, createdAt])
   @@map("pricing_suggestions")
+}
+
+// ── User ──────────────────────────────────────────────────────────────────────
+// Staff-only login accounts (Admin / Store Manager / Regional Manager).
+// Session 30 addition — no public/customer signup exists; Admin creates
+// all accounts manually.
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String // scrambled password — never stored as plain text
+  role         Role     @default(STORE_MANAGER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Only meaningful for STORE_MANAGER right now — which single store they
+  // manage. Null for ADMIN (sees all stores) and for REGIONAL_MANAGER
+  // (region-based grouping still to be designed).
+  storeId String?
+  store   Store?  @relation(fields: [storeId], references: [id])
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  STORE_MANAGER
+  REGIONAL_MANAGER
 }
