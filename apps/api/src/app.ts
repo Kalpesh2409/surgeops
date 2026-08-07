@@ -11,6 +11,7 @@ import { healthRouter as healthRoutes } from "./routes/health";
 import streamRoutes from "./routes/stream";
 import inventoryRoutes from "./routes/inventory";
 import authRoutes from "./routes/auth";
+import usersRoutes from "./routes/users";
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use("/pricing", pricingRoutes);
 app.use("/stream", streamRoutes);
 app.use("/inventory", inventoryRoutes);
 app.use("/auth", authRoutes); // POST /auth/login
+app.use("/users", usersRoutes); // GET /users
 
 // ── Centralized error handler ─────────────────────────────────────────────────
 app.use(
