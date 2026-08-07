@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
+import ManageUsers from './pages/ManageUsers'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -18,6 +19,14 @@ createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manage-users"
+          element={
+            <ProtectedRoute>
+              <ManageUsers />
             </ProtectedRoute>
           }
         />
