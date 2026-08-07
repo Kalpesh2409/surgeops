@@ -1,5 +1,4 @@
 // src/app.ts
-// Express app configuration, separated from server boot for testability.
 import cors from "cors";
 import express from "express";
 
@@ -10,6 +9,7 @@ import pricingRoutes from "./routes/pricing";
 import { healthRouter as healthRoutes } from "./routes/health";
 import streamRoutes from "./routes/stream";
 import inventoryRoutes from "./routes/inventory";
+import authRoutes from "./routes/auth";
 
 const app = express();
 
@@ -28,6 +28,7 @@ app.use("/simulator", simulatorRoutes);
 app.use("/pricing", pricingRoutes);
 app.use("/stream", streamRoutes);
 app.use("/inventory", inventoryRoutes);
+app.use("/auth", authRoutes); // POST /auth/login
 
 // ── Centralized error handler ─────────────────────────────────────────────────
 app.use(
