@@ -8,6 +8,7 @@ import ManageUsers from './pages/ManageUsers'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Hero from './components/Hero'
+import ProblemSolution from './components/ProblemSolution'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -31,8 +32,16 @@ createRoot(document.getElementById('root')!).render(
             </ProtectedRoute>
           }
         />
-        {/* TEMPORARY — remove once Hero is wired into the real Home page */}
-        <Route path="/preview-3d" element={<Hero />} />
+        {/* TEMPORARY — remove once these are wired into the real Home page */}
+        <Route
+          path="/preview-3d"
+          element={
+            <>
+              <Hero />
+              <ProblemSolution />
+            </>
+          }
+        />
       </Routes>
     </BrowserRouter>
   </TooltipProvider>
