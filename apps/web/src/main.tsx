@@ -9,6 +9,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Hero from './components/Hero'
 import ProblemSolution from './components/ProblemSolution'
+import HowPricingWorks from './components/HowPricingWorks'
+import SeeSurgeOpsInAction from './components/SeeSurgeOpsInAction'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -39,6 +41,8 @@ createRoot(document.getElementById('root')!).render(
             <>
               <Hero />
               <ProblemSolution />
+              <HowPricingWorks />
+              <SeeSurgeOpsInAction />
             </>
           }
         />
