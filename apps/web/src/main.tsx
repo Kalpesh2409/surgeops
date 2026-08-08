@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import ManageUsers from './pages/ManageUsers'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import Hero3D from './components/Hero3D'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -29,6 +30,11 @@ createRoot(document.getElementById('root')!).render(
               <ManageUsers />
             </ProtectedRoute>
           }
+        />
+        {/* TEMPORARY — remove once Hero3D is wired into the real Home page */}
+        <Route
+          path="/preview-3d"
+          element={<div style={{ width: '100vw', height: '100vh', background: '#0a0a0a' }}><Hero3D /></div>}
         />
       </Routes>
     </BrowserRouter>
