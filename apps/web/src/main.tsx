@@ -13,6 +13,7 @@ import HowPricingWorks from './components/HowPricingWorks'
 import SeeSurgeOpsInAction from './components/SeeSurgeOpsInAction'
 import TechStack from './components/TechStack'
 import PublicHeader from './components/PublicHeader'
+import Footer from './components/Footer'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -47,6 +48,7 @@ createRoot(document.getElementById('root')!).render(
               <HowPricingWorks />
               <SeeSurgeOpsInAction />
               <TechStack />
+              <Footer />
             </>
           }
         />
