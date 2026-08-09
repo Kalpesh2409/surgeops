@@ -5,6 +5,7 @@ import App from './App.tsx'
 import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
 import ManageUsers from './pages/ManageUsers'
+import About from './pages/About'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import Hero from './components/Hero'
@@ -21,6 +22,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route path="/" element={<App />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/about" element={<About />} />
         <Route
           path="/admin-dashboard"
           element={
