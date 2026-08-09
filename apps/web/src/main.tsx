@@ -11,6 +11,7 @@ import Hero from './components/Hero'
 import ProblemSolution from './components/ProblemSolution'
 import HowPricingWorks from './components/HowPricingWorks'
 import SeeSurgeOpsInAction from './components/SeeSurgeOpsInAction'
+import TechStack from './components/TechStack'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -43,6 +44,7 @@ createRoot(document.getElementById('root')!).render(
               <ProblemSolution />
               <HowPricingWorks />
               <SeeSurgeOpsInAction />
+              <TechStack />
             </>
           }
         />
