@@ -40,8 +40,8 @@ export default function HowPricingWorks() {
           transition={{ duration: 0.7, ease: "easeOut" }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl font-bold mb-2">How SurgeOps Pricing Works</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <h2 className="font-display text-3xl font-bold mb-2">How SurgeOps Pricing Works</h2>
+          <p className="font-body text-gray-400 max-w-2xl mx-auto">
             Every price is calculated using three layers: historical
             patterns, real-time demand, and pricing safety rules.
           </p>
@@ -63,9 +63,9 @@ export default function HowPricingWorks() {
               className="bg-white/5 border border-white/10 rounded-xl p-6 cursor-pointer"
             >
               <div className="text-3xl mb-3">{step.icon}</div>
-              <p className="text-sky-400 text-sm font-semibold mb-1">{step.tag}</p>
-              <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-              <p className="text-gray-300 text-sm leading-relaxed">{step.text}</p>
+              <p className="font-body text-sky-400 text-sm font-semibold mb-1">{step.tag}</p>
+              <h3 className="font-display text-lg font-semibold mb-2">{step.title}</h3>
+              <p className="font-body text-gray-300 text-sm leading-relaxed">{step.text}</p>
             </motion.div>
           ))}
         </div>
@@ -77,8 +77,8 @@ export default function HowPricingWorks() {
           transition={{ duration: 0.7, ease: "easeOut" }}
           className="bg-white/5 border border-white/10 rounded-xl p-10 max-w-3xl mx-auto"
         >
-          <p className="text-red-400 font-semibold mb-1">🔴 See It Happen</p>
-          <p className="text-gray-400 mb-8">
+          <p className="font-body text-red-400 font-semibold mb-1">🔴 See It Happen</p>
+          <p className="font-body text-gray-400 mb-8">
             Coca-Cola — Base Price ₹40 | MRP ₹50
           </p>
 
@@ -101,9 +101,9 @@ export default function HowPricingWorks() {
                       : "border-white/10 bg-white/5"
                   }`}
                 >
-                  <span className="text-gray-300 text-sm">{step.label}</span>
+                  <span className="font-body text-gray-300 text-sm">{step.label}</span>
                   <span
-                    className={`font-bold ${
+                    className={`font-body font-bold ${
                       step.state === "blocked"
                         ? "text-red-400 line-through"
                         : step.state === "allowed"
@@ -130,10 +130,10 @@ export default function HowPricingWorks() {
             transition={{ duration: 0.6, delay: flow.length * 0.3 + 0.2 }}
             className="text-center mt-8"
           >
-            <p className="text-2xl font-bold text-green-400 mb-2">
+            <p className="font-display text-2xl font-bold text-green-400 mb-2">
               Final Price: ₹50
             </p>
-            <p className="text-gray-400 text-sm max-w-md mx-auto">
+            <p className="font-body text-gray-400 text-sm max-w-md mx-auto">
               Demand pushed the calculated price higher, but the MRP
               guardrail stopped it at ₹50.
             </p>

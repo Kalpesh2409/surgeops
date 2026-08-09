@@ -14,7 +14,6 @@ function TimelineStep({
 
   return (
     <div className="relative flex items-center justify-center mb-16 md:mb-24">
-      {/* Center line dot for this step */}
       <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-sky-400 z-10" />
 
       <div
@@ -27,13 +26,12 @@ function TimelineStep({
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: false, amount: 0.6 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
-          className="relative z-10 bg-white/5 border border-white/10 rounded-xl p-6 max-w-md w-full"
+          className="font-body relative z-10 bg-white/5 border border-white/10 rounded-xl p-6 max-w-md w-full"
         >
           {children}
         </motion.div>
       </div>
 
-      {/* Empty spacer for the other side on desktop */}
       <div className={`hidden md:block w-1/2 ${isLeft ? "md:order-2" : ""}`} />
     </div>
   );
@@ -56,12 +54,10 @@ function LiveDemandCounter() {
 export default function SeeSurgeOpsInAction() {
   return (
     <section className="relative w-full bg-black text-white px-6 py-24 overflow-hidden">
-      {/* Soft ambient glow, purely decorative, no animation */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-sky-400/5 rounded-full blur-[100px]" />
 
-        {/* Faint static dots for texture */}
         <div className="absolute top-[10%] left-[15%] w-1 h-1 bg-sky-400/40 rounded-full" />
         <div className="absolute top-[25%] right-[20%] w-1 h-1 bg-sky-400/30 rounded-full" />
         <div className="absolute top-[45%] left-[8%] w-1.5 h-1.5 bg-sky-400/20 rounded-full" />
@@ -78,23 +74,21 @@ export default function SeeSurgeOpsInAction() {
           transition={{ duration: 0.7, ease: "easeOut" }}
           className="text-center mb-4"
         >
-          <h2 className="text-3xl font-bold mb-3">See SurgeOps in Action</h2>
-          <p className="text-gray-400 max-w-lg mx-auto">
+          <h2 className="font-display text-3xl font-bold mb-3">See SurgeOps in Action</h2>
+          <p className="font-body text-gray-400 max-w-lg mx-auto">
             Follow a single customer order from purchase to a live pricing
             decision — and see how SurgeOps reacts in real time.
           </p>
-          <p className="text-gray-600 text-xs mt-3 italic">
+          <p className="font-body text-gray-600 text-xs mt-3 italic">
             Demo visualization — illustrates the real pricing flow using a
             scripted example.
           </p>
         </motion.div>
 
-        {/* Center vertical line spanning the whole timeline (desktop only) */}
         <div className="relative">
           <div className="hidden md:block absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-px bg-white/10" />
 
           <div className="pt-16">
-            {/* Step 1 — Customer Website */}
             <TimelineStep side="left">
               <p className="text-gray-400 text-sm mb-3">QuickCart</p>
               <div className="flex items-center justify-between mb-3">
@@ -107,7 +101,6 @@ export default function SeeSurgeOpsInAction() {
               <p className="text-green-400 text-sm mt-3">✓ Product added to cart</p>
             </TimelineStep>
 
-            {/* Step 2 — Order Placed */}
             <TimelineStep side="right">
               <p className="text-gray-400 text-sm mb-3">Order #1042</p>
               <div className="flex items-center justify-between mb-3 text-sm">
@@ -120,7 +113,6 @@ export default function SeeSurgeOpsInAction() {
               <p className="text-green-400 text-sm mt-3">✓ Order placed successfully</p>
             </TimelineStep>
 
-            {/* Step 3 — API Receives Order */}
             <TimelineStep side="left">
               <p className="font-semibold mb-3">SurgeOps API</p>
               <p className="text-gray-500 text-xs font-mono mb-3">POST /orders</p>
@@ -128,7 +120,6 @@ export default function SeeSurgeOpsInAction() {
               <p className="text-green-400 text-sm">✓ Inventory updated</p>
             </TimelineStep>
 
-            {/* Step 4 — Live Demand Changes */}
             <TimelineStep side="right">
               <p className="font-semibold mb-3">⚡ Live Demand</p>
               <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
@@ -142,7 +133,6 @@ export default function SeeSurgeOpsInAction() {
               <p className="text-yellow-400 text-sm">Demand is increasing</p>
             </TimelineStep>
 
-            {/* Step 5 — ML Baseline */}
             <TimelineStep side="left">
               <p className="font-semibold mb-3">🧠 ML Demand Prediction</p>
               <p className="text-gray-400 text-sm mb-3">
@@ -153,7 +143,6 @@ export default function SeeSurgeOpsInAction() {
               </p>
             </TimelineStep>
 
-            {/* Step 6 — Live Pricing Adjustment */}
             <TimelineStep side="right">
               <p className="font-semibold mb-3">⚡ Dynamic Pricing Engine</p>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
@@ -165,7 +154,6 @@ export default function SeeSurgeOpsInAction() {
               </p>
             </TimelineStep>
 
-            {/* Step 7 — MRP Guardrail */}
             <TimelineStep side="left">
               <p className="font-semibold mb-3">🛡️ MRP Guardrail</p>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
@@ -186,7 +174,6 @@ export default function SeeSurgeOpsInAction() {
               </div>
             </TimelineStep>
 
-            {/* Step 8 — SSE Update */}
             <TimelineStep side="right">
               <p className="font-semibold mb-3">📡 Live Price Update</p>
               <p className="text-gray-400 text-sm mb-2">
@@ -202,7 +189,6 @@ export default function SeeSurgeOpsInAction() {
               />
             </TimelineStep>
 
-            {/* Step 9 — Dashboard Update */}
             <TimelineStep side="left">
               <p className="font-semibold mb-3">Coca-Cola</p>
               <div className="text-sm text-gray-400 space-y-1 mb-3">
@@ -224,7 +210,7 @@ export default function SeeSurgeOpsInAction() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.5 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
-          className="text-center text-gray-400 max-w-lg mx-auto mt-4"
+          className="font-body text-center text-gray-400 max-w-lg mx-auto mt-4"
         >
           One order can change demand. SurgeOps turns that signal into a
           controlled pricing decision — and delivers the update to
