@@ -1,26 +1,22 @@
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
 import ManageUsers from './pages/ManageUsers'
 import About from './pages/About'
+import Home from './pages/Home'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import Hero from './components/Hero'
-import ProblemSolution from './components/ProblemSolution'
-import HowPricingWorks from './components/HowPricingWorks'
-import SeeSurgeOpsInAction from './components/SeeSurgeOpsInAction'
-import TechStack from './components/TechStack'
-import PublicHeader from './components/PublicHeader'
-import Footer from './components/Footer'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<App />} />
+        <Route path="/" element={<Navigate to="/home" replace />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/operations" element={<App />} />
         <Route path="/login" element={<Login />} />
         <Route path="/about" element={<About />} />
         <Route
@@ -37,21 +33,6 @@ createRoot(document.getElementById('root')!).render(
             <ProtectedRoute>
               <ManageUsers />
             </ProtectedRoute>
-          }
-        />
-        {/* TEMPORARY — remove once these are wired into the real Home page */}
-        <Route
-          path="/preview-3d"
-          element={
-            <>
-              <PublicHeader />
-              <Hero />
-              <ProblemSolution />
-              <HowPricingWorks />
-              <SeeSurgeOpsInAction />
-              <TechStack />
-              <Footer />
-            </>
           }
         />
       </Routes>

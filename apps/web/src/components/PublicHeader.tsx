@@ -5,10 +5,10 @@ export default function PublicHeader() {
   const navigate = useNavigate();
 
   const handleHomeClick = () => {
-    if (location.pathname === "/preview-3d") {
+    if (location.pathname === "/home") {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      navigate("/preview-3d");
+      navigate("/home");
     }
   };
 
