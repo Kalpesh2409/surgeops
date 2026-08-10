@@ -120,7 +120,7 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-sky-500 hover:bg-sky-400 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50"
+                className="w-full bg-sky-500 hover:bg-sky-400 text-white rounded-lg py-2.5 text-sm font-semibold transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {loading ? "Logging in..." : "Log in"}
               </button>

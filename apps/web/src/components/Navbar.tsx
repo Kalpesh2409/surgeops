@@ -16,7 +16,7 @@ export default function Navbar() {
   function handleLogout() {
     localStorage.removeItem("surgeops-token");
     localStorage.removeItem("surgeops-user");
-    navigate("/login");
+    navigate("/home", { state: { loggedOut: true } });
   }
 
   return (
