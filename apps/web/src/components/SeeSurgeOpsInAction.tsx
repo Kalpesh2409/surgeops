@@ -13,7 +13,7 @@ function TimelineStep({
   const isLeft = side === "left";
 
   return (
-    <div className="relative flex items-center justify-center mb-16 md:mb-24">
+    <div className="relative flex items-center justify-center mb-8 md:mb-24">
       <div className="hidden md:block absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-sky-400 z-10" />
 
       <div
@@ -53,7 +53,7 @@ function LiveDemandCounter() {
 
 export default function SeeSurgeOpsInAction() {
   return (
-    <section className="relative w-full bg-black text-white px-6 py-24 overflow-hidden">
+    <section className="relative w-full bg-black text-white px-6 py-16 md:py-24 overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-1/4 left-1/3 w-[400px] h-[400px] bg-sky-400/5 rounded-full blur-[100px]" />

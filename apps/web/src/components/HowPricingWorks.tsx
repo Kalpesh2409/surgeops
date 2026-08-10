@@ -31,14 +31,14 @@ const flow = [
 
 export default function HowPricingWorks() {
   return (
-    <section className="w-full bg-black text-white px-6 py-24">
+    <section className="w-full bg-black text-white px-6 py-16 md:py-24">
       <div className="max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.7, ease: "easeOut" }}
-          className="text-center mb-16"
+          className="text-center mb-10 md:mb-16"
         >
           <h2 className="font-display text-3xl font-bold mb-2">How SurgeOps Pricing Works</h2>
           <p className="font-body text-gray-400 max-w-2xl mx-auto">

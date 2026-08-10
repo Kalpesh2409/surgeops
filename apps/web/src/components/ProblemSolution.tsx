@@ -2,8 +2,8 @@ import { motion } from "framer-motion";
 
 export default function ProblemSolution() {
   return (
-    <section className="w-full bg-black text-white px-6 py-24">
-      <div className="max-w-3xl mx-auto space-y-16">
+    <section className="w-full bg-black text-white px-6 py-16 md:py-24">
+      <div className="max-w-3xl mx-auto space-y-10 md:space-y-16">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
