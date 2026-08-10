@@ -21,12 +21,7 @@ export default function Navbar() {
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 border-b border-border bg-background">
-      <Link
-        to="/admin-dashboard"
-        className="font-bold text-lg text-foreground"
-      >
-        SurgeOps
-      </Link>
+      <span className="font-bold text-lg text-foreground">SurgeOps</span>
 
       <div className="flex items-center gap-6 text-sm">
         <Link to="/admin-dashboard" className="text-foreground hover:underline">
