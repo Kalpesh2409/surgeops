@@ -8,7 +8,7 @@ export default function About() {
       <div className="border border-white/10 rounded-3xl bg-black text-white">
         <PublicHeader />
 
-        <div className="pt-16 pb-24 px-6 max-w-3xl mx-auto space-y-20">
+        <div className="pt-8 md:pt-16 pb-12 md:pb-24 px-6 max-w-3xl mx-auto space-y-10 md:space-y-20">
           {/* 1 — About SurgeOps */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -86,7 +86,7 @@ export default function About() {
         </div>
 
         {/* 4 — Before/After diagram, full-width section with ambient glow */}
-        <section className="relative w-full py-20 overflow-hidden">
+        <section className="relative w-full py-12 md:py-20 overflow-hidden">
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px]" />
           </div>
@@ -97,7 +97,7 @@ export default function About() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: false, amount: 0.5 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              className="text-center mb-12"
+              className="text-center mb-8 md:mb-12"
             >
               <h2 className="font-display text-2xl font-bold">
                 The Transformation
