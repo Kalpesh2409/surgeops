@@ -12,6 +12,7 @@ import streamRoutes from "./routes/stream";
 import inventoryRoutes from "./routes/inventory";
 import authRoutes from "./routes/auth";
 import usersRoutes from "./routes/users";
+import analyticsRoutes from "./routes/analytics";
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/stream", streamRoutes);
 app.use("/inventory", inventoryRoutes);
 app.use("/auth", authRoutes); // POST /auth/login
 app.use("/users", usersRoutes); // GET /users
+app.use("/analytics", analyticsRoutes); // GET /analytics/sales
 
 // ── Centralized error handler ─────────────────────────────────────────────────
 app.use(
