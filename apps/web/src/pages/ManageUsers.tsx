@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 
 interface UserRow {
   id: string;
@@ -9,6 +9,21 @@ interface UserRow {
   storeId: string | null;
   store: { name: string; city: string } | null;
   createdAt: string;
+}
+
+const roleStyles: Record<string, string> = {
+  ADMIN: "bg-sky-500/10 text-sky-400",
+  STORE_MANAGER: "bg-purple-500/10 text-purple-400",
+  REGIONAL_MANAGER: "bg-amber-500/10 text-amber-400",
+};
+
+function initialsOf(name: string) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 export default function ManageUsers() {
@@ -46,37 +61,77 @@ export default function ManageUsers() {
   }, [apiUrl]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="p-6">
-        <h1 className="text-xl font-bold text-foreground mb-4">Manage Users</h1>
+    <div className="min-h-screen bg-background flex">
+      <Sidebar />
+      <div className="flex-1 p-8">
+        <h1 className="text-2xl font-bold text-foreground mb-1">
+          Manage Users
+        </h1>
+        <p className="text-muted-foreground text-sm mb-6">
+          {users.length} {users.length === 1 ? "account" : "accounts"} total
+        </p>
 
         {loading && <p className="text-muted-foreground">Loading...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
         {!loading && !error && (
-          <table className="w-full text-sm text-foreground border-collapse">
-            <thead>
-              <tr className="text-left border-b border-border">
-                <th className="py-2 pr-4">Name</th>
-                <th className="py-2 pr-4">Email</th>
-                <th className="py-2 pr-4">Role</th>
-                <th className="py-2 pr-4">Store</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.id} className="border-b border-border">
-                  <td className="py-2 pr-4">{user.name}</td>
-                  <td className="py-2 pr-4">{user.email}</td>
-                  <td className="py-2 pr-4">{user.role}</td>
-                  <td className="py-2 pr-4">
-                    {user.store ? `${user.store.name} (${user.store.city})` : "—"}
-                  </td>
+          <div className="border border-border rounded-xl overflow-hidden bg-card">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left bg-white/[0.03] border-b border-border">
+                  <th className="py-3 px-5 font-medium text-muted-foreground">
+                    Name
+                  </th>
+                  <th className="py-3 px-5 font-medium text-muted-foreground">
+                    Email
+                  </th>
+                  <th className="py-3 px-5 font-medium text-muted-foreground">
+                    Role
+                  </th>
+                  <th className="py-3 px-5 font-medium text-muted-foreground">
+                    Store
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-border last:border-0 hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="py-3 px-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-sky-500 text-black flex items-center justify-center text-xs font-bold shrink-0">
+                          {initialsOf(user.name)}
+                        </div>
+                        <span className="text-foreground font-medium">
+                          {user.name}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-5 text-muted-foreground">
+                      {user.email}
+                    </td>
+                    <td className="py-3 px-5">
+                      <span
+                        className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full ${
+                          roleStyles[user.role] ||
+                          "bg-gray-500/10 text-gray-400"
+                        }`}
+                      >
+                        {user.role.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="py-3 px-5 text-muted-foreground">
+                      {user.store
+                        ? `${user.store.name} (${user.store.city})`
+                        : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>
