@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 
 interface StoredUser {
   id: string;
@@ -20,9 +20,9 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="flex items-center justify-center py-20">
+    <div className="min-h-screen bg-background flex">
+      <Sidebar />
+      <div className="flex-1 flex items-center justify-center">
         <h1 className="text-2xl font-bold text-foreground">
           Welcome, {user ? user.name : "..."}
         </h1>
