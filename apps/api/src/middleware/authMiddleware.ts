@@ -52,3 +52,22 @@ export function requireAuth(
     return res.status(401).json({ error: "Invalid or expired token" });
   }
 }
+
+/**
+ * requireAdmin
+ *
+ * Express middleware that blocks the request unless the logged-in user's
+ * role is ADMIN. Must run AFTER requireAuth, since it relies on req.user
+ * already being set. Used to protect actions like creating, editing, or
+ * deleting staff accounts.
+ */
+export function requireAdmin(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  if (!req.user || req.user.role !== "ADMIN") {
+    return res.status(403).json({ error: "Admin access required" });
+  }
+  next();
+}
