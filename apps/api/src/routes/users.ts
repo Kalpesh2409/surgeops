@@ -19,6 +19,7 @@ router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) =
         email: true,
         role: true,
         storeId: true,
+        isActive: true,
         store: {
           select: { name: true, city: true },
         },
@@ -85,6 +86,98 @@ router.post("/", requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
     return res.status(201).json({ message: "User created successfully", user: newUser });
   } catch (err) {
     console.error("[Users] POST / error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PATCH /users/:id
+// Updates an existing user's Name, Email, Role, or Store. Admin-only.
+// Password is never changed here — that would need a separate, more
+// careful flow (e.g. "reset password") since it involves re-hashing.
+router.patch("/:id", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { name, email, role, storeId } = req.body as {
+    name?: string;
+    email?: string;
+    role?: string;
+    storeId?: string;
+  };
+
+  if (role) {
+    const validRoles = ["ADMIN", "STORE_MANAGER", "REGIONAL_MANAGER"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: "Role must be ADMIN, STORE_MANAGER, or REGIONAL_MANAGER" });
+    }
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (email && email !== existing.email) {
+      const emailTaken = await prisma.user.findUnique({ where: { email } });
+      if (emailTaken) {
+        return res.status(409).json({ error: "A user with this email already exists" });
+      }
+    }
+
+    const effectiveRole = role || existing.role;
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        name: name ?? existing.name,
+        email: email ?? existing.email,
+        role: effectiveRole as "ADMIN" | "STORE_MANAGER" | "REGIONAL_MANAGER",
+        // Only Store Managers keep a store assignment — clear it for
+        // anyone else, same rule as when creating a user.
+        storeId: effectiveRole === "STORE_MANAGER" ? (storeId ?? existing.storeId) : null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        storeId: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    return res.json({ message: "User updated successfully", user: updatedUser });
+  } catch (err) {
+    console.error("[Users] PATCH /:id error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DELETE /users/:id
+// Soft-deletes a user — sets isActive to false so they can no longer log
+// in, but keeps their record for history. Admin-only. Blocks an Admin
+// from deactivating their own account, to avoid accidental lockout.
+router.delete("/:id", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+
+  if (req.user?.userId === id) {
+    return res.status(400).json({ error: "You cannot deactivate your own account" });
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return res.json({ message: "User deactivated successfully" });
+  } catch (err) {
+    console.error("[Users] DELETE /:id error:", err);
     return res.status(500).json({ error: "Internal server error" });
   }
 });

@@ -28,6 +28,10 @@ router.post("/login", async (req: Request, res: Response) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    if (!user.isActive) {
+      return res.status(403).json({ error: "This account has been deactivated" });
+    }
+
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
       return res.status(401).json({ error: "Invalid email or password" });
