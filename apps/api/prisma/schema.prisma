@@ -190,6 +190,7 @@ model User {
   email        String   @unique
   passwordHash String // scrambled password — never stored as plain text
   role         Role     @default(STORE_MANAGER)
+  isActive     Boolean  @default(true) // false = deactivated (soft delete) — blocks login, keeps record
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
