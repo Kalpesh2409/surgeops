@@ -5,6 +5,7 @@ import App from './App.tsx'
 import Login from './pages/Login'
 import AdminDashboard from './pages/AdminDashboard'
 import ManageUsers from './pages/ManageUsers'
+import SalesAnalytics from './pages/SalesAnalytics'
 import About from './pages/About'
 import Home from './pages/Home'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -32,6 +33,14 @@ createRoot(document.getElementById('root')!).render(
           element={
             <ProtectedRoute>
               <ManageUsers />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales-analytics"
+          element={
+            <ProtectedRoute>
+              <SalesAnalytics />
             </ProtectedRoute>
           }
         />
