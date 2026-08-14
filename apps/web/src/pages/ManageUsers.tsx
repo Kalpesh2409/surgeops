@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
+import CreateUserModal from "@/components/CreateUserModal";
 
 interface UserRow {
   id: string;
@@ -30,43 +31,53 @@ export default function ManageUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
-  useEffect(() => {
-    async function fetchUsers() {
-      const token = localStorage.getItem("surgeops-token");
+  async function fetchUsers() {
+    const token = localStorage.getItem("surgeops-token");
 
-      try {
-        const res = await fetch(`${apiUrl}/users`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+    try {
+      const res = await fetch(`${apiUrl}/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
 
-        if (!res.ok) {
-          setError(data.error || "Failed to load users");
-          return;
-        }
-
-        setUsers(data.users);
-      } catch (err) {
-        console.error(err);
-        setError("Something went wrong while loading users.");
-      } finally {
-        setLoading(false);
+      if (!res.ok) {
+        setError(data.error || "Failed to load users");
+        return;
       }
-    }
 
+      setUsers(data.users);
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while loading users.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
 
   return (
     <div className="min-h-screen bg-background flex">
       <Sidebar />
       <div className="flex-1 p-8">
-        <h1 className="text-2xl font-bold text-foreground mb-1">
-          Manage Users
-        </h1>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-2xl font-bold text-foreground">
+            Manage Users
+          </h1>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-sky-500 text-black text-sm font-semibold px-4 py-2 rounded-lg hover:bg-sky-400 transition-colors"
+          >
+            + Create User
+          </button>
+        </div>
         <p className="text-muted-foreground text-sm mb-6">
           {users.length} {users.length === 1 ? "account" : "accounts"} total
         </p>
@@ -134,6 +145,13 @@ export default function ManageUsers() {
           </div>
         )}
       </div>
+
+      {showCreateModal && (
+        <CreateUserModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={fetchUsers}
+        />
+      )}
     </div>
   );
 }
