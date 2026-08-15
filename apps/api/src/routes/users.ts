@@ -182,4 +182,35 @@ router.delete("/:id", requireAuth, requireAdmin, async (req: AuthenticatedReques
   }
 });
 
+// DELETE /users/:id/permanent
+// Permanently removes a user from the database — cannot be undone.
+// Admin-only. Blocks deleting your own account. Only meant to be used
+// on accounts that are already deactivated (soft-deleted), as a final
+// cleanup step — the frontend enforces this two-step flow.
+router.delete("/:id/permanent", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+
+  if (req.user?.userId === id) {
+    return res.status(400).json({ error: "You cannot delete your own account" });
+  }
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (existing.isActive) {
+      return res.status(400).json({ error: "User must be deactivated before permanent deletion" });
+    }
+
+    await prisma.user.delete({ where: { id } });
+
+    return res.json({ message: "User permanently deleted" });
+  } catch (err) {
+    console.error("[Users] DELETE /:id/permanent error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

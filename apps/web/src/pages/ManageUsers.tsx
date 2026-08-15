@@ -8,6 +8,7 @@ interface UserRow {
   email: string;
   role: string;
   storeId: string | null;
+  isActive: boolean;
   store: { name: string; city: string } | null;
   createdAt: string;
 }
@@ -32,6 +33,9 @@ export default function ManageUsers() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -60,8 +64,47 @@ export default function ManageUsers() {
 
   useEffect(() => {
     fetchUsers();
+
+    // Figure out who's currently logged in, so we can hide the Deactivate
+    // button on their own row (backend blocks it too, but hiding it in
+    // the UI avoids a confusing error message).
+    const storedUser = localStorage.getItem("surgeops-user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        setCurrentUserId(parsed.id);
+      } catch (err) {
+        console.error("Failed to parse stored user:", err);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiUrl]);
+
+  async function handleConfirmDeactivate() {
+    if (!confirmDeactivate) return;
+    const token = localStorage.getItem("surgeops-token");
+
+    try {
+      const res = await fetch(`${apiUrl}/users/${confirmDeactivate.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to deactivate user");
+        setConfirmDeactivate(null);
+        return;
+      }
+
+      setConfirmDeactivate(null);
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while deactivating the user.");
+      setConfirmDeactivate(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -102,6 +145,12 @@ export default function ManageUsers() {
                   <th className="py-3 px-5 font-medium text-muted-foreground">
                     Store
                   </th>
+                  <th className="py-3 px-5 font-medium text-muted-foreground">
+                    Status
+                  </th>
+                  <th className="py-3 px-5 font-medium text-muted-foreground text-right">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -138,6 +187,35 @@ export default function ManageUsers() {
                         ? `${user.store.name} (${user.store.city})`
                         : "—"}
                     </td>
+                    <td className="py-3 px-5">
+                      {user.isActive ? (
+                        <span className="inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-green-500/10 text-green-400">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-red-500/10 text-red-400">
+                          Deactivated
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3 px-5 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingUser(user)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-muted-foreground hover:bg-white/[0.03] transition-colors"
+                        >
+                          Edit
+                        </button>
+                        {user.id !== currentUserId && user.isActive && (
+                          <button
+                            onClick={() => setConfirmDeactivate(user)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                          >
+                            Deactivate
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -149,8 +227,44 @@ export default function ManageUsers() {
       {showCreateModal && (
         <CreateUserModal
           onClose={() => setShowCreateModal(false)}
-          onCreated={fetchUsers}
+          onSaved={fetchUsers}
         />
+      )}
+
+      {editingUser && (
+        <CreateUserModal
+          onClose={() => setEditingUser(null)}
+          onSaved={fetchUsers}
+          editingUser={editingUser}
+        />
+      )}
+
+      {confirmDeactivate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold text-foreground mb-2">
+              Deactivate {confirmDeactivate.name}?
+            </h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              They will no longer be able to log in. This can be reversed
+              later if needed.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeactivate(null)}
+                className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-white/[0.03] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDeactivate}
+                className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-400 transition-colors"
+              >
+                Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

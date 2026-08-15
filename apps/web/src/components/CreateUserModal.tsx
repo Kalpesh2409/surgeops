@@ -6,17 +6,28 @@ interface Store {
   city: string;
 }
 
-interface CreateUserModalProps {
-  onClose: () => void;
-  onCreated: () => void;
+interface ExistingUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  storeId: string | null;
 }
 
-export default function CreateUserModal({ onClose, onCreated }: CreateUserModalProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+interface CreateUserModalProps {
+  onClose: () => void;
+  onSaved: () => void;
+  editingUser?: ExistingUser | null;
+}
+
+export default function CreateUserModal({ onClose, onSaved, editingUser }: CreateUserModalProps) {
+  const isEditing = !!editingUser;
+
+  const [name, setName] = useState(editingUser?.name || "");
+  const [email, setEmail] = useState(editingUser?.email || "");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("STORE_MANAGER");
-  const [storeId, setStoreId] = useState("");
+  const [role, setRole] = useState(editingUser?.role || "STORE_MANAGER");
+  const [storeId, setStoreId] = useState(editingUser?.storeId || "");
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -44,8 +55,8 @@ export default function CreateUserModal({ onClose, onCreated }: CreateUserModalP
     e.preventDefault();
     setError(null);
 
-    if (!name || !email || !password) {
-      setError("Name, email, and password are all required.");
+    if (!name || !email || (!isEditing && !password)) {
+      setError("Name and email are required.");
       return;
     }
 
@@ -58,34 +69,43 @@ export default function CreateUserModal({ onClose, onCreated }: CreateUserModalP
     const token = localStorage.getItem("surgeops-token");
 
     try {
-      const res = await fetch(`${apiUrl}/users`, {
-        method: "POST",
+      const url = isEditing
+        ? `${apiUrl}/users/${editingUser!.id}`
+        : `${apiUrl}/users`;
+      const method = isEditing ? "PATCH" : "POST";
+
+      const payload: Record<string, unknown> = {
+        name,
+        email,
+        role,
+        storeId: role === "STORE_MANAGER" ? storeId : undefined,
+      };
+      if (!isEditing) {
+        payload.password = password;
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          role,
-          storeId: role === "STORE_MANAGER" ? storeId : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to create user.");
+        setError(data.error || "Failed to save user.");
         setSubmitting(false);
         return;
       }
 
-      onCreated();
+      onSaved();
       onClose();
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while creating the user.");
+      setError("Something went wrong while saving the user.");
       setSubmitting(false);
     }
   }
@@ -94,7 +114,7 @@ export default function CreateUserModal({ onClose, onCreated }: CreateUserModalP
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-card border border-border rounded-xl w-full max-w-md mx-4 p-6">
         <h2 className="text-lg font-bold text-foreground mb-4">
-          Create New User
+          {isEditing ? "Edit User" : "Create New User"}
         </h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -124,18 +144,20 @@ export default function CreateUserModal({ onClose, onCreated }: CreateUserModalP
             />
           </div>
 
-          <div>
-            <label className="text-sm text-muted-foreground block mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-sky-500"
-              placeholder="Temporary password"
-            />
-          </div>
+          {!isEditing && (
+            <div>
+              <label className="text-sm text-muted-foreground block mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-sky-500"
+                placeholder="Temporary password"
+              />
+            </div>
+          )}
 
           <div>
             <label className="text-sm text-muted-foreground block mb-1">
@@ -187,7 +209,7 @@ export default function CreateUserModal({ onClose, onCreated }: CreateUserModalP
               disabled={submitting}
               className="flex-1 py-2 rounded-lg bg-sky-500 text-black text-sm font-semibold hover:bg-sky-400 transition-colors disabled:opacity-50"
             >
-              {submitting ? "Creating..." : "Create User"}
+              {submitting ? "Saving..." : isEditing ? "Save Changes" : "Create User"}
             </button>
           </div>
         </form>
