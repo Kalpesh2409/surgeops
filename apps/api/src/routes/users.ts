@@ -213,4 +213,28 @@ router.delete("/:id/permanent", requireAuth, requireAdmin, async (req: Authentic
   }
 });
 
+// PATCH /users/:id/reactivate
+// Reverses a soft-delete — sets isActive back to true so the user can
+// log in again. Admin-only. Only meaningful for users who are currently
+// deactivated; the frontend only shows this option in that case.
+router.patch("/:id/reactivate", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    return res.json({ message: "User reactivated successfully" });
+  } catch (err) {
+    console.error("[Users] PATCH /:id/reactivate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 export default router;

@@ -35,6 +35,8 @@ export default function ManageUsers() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
+  const [confirmPermanentDelete, setConfirmPermanentDelete] = useState<UserRow | null>(null);
+  const [permanentDeleteInput, setPermanentDeleteInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
@@ -65,9 +67,6 @@ export default function ManageUsers() {
   useEffect(() => {
     fetchUsers();
 
-    // Figure out who's currently logged in, so we can hide the Deactivate
-    // button on their own row (backend blocks it too, but hiding it in
-    // the UI avoids a confusing error message).
     const storedUser = localStorage.getItem("surgeops-user");
     if (storedUser) {
       try {
@@ -105,6 +104,38 @@ export default function ManageUsers() {
       setConfirmDeactivate(null);
     }
   }
+
+  async function handleConfirmPermanentDelete() {
+    if (!confirmPermanentDelete) return;
+    const token = localStorage.getItem("surgeops-token");
+
+    try {
+      const res = await fetch(`${apiUrl}/users/${confirmPermanentDelete.id}/permanent`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to permanently delete user");
+        setConfirmPermanentDelete(null);
+        setPermanentDeleteInput("");
+        return;
+      }
+
+      setConfirmPermanentDelete(null);
+      setPermanentDeleteInput("");
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while deleting the user.");
+      setConfirmPermanentDelete(null);
+      setPermanentDeleteInput("");
+    }
+  }
+
+  const nameMatches =
+    confirmPermanentDelete && permanentDeleteInput.trim() === confirmPermanentDelete.name.trim();
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -214,6 +245,14 @@ export default function ManageUsers() {
                             Deactivate
                           </button>
                         )}
+                        {user.id !== currentUserId && !user.isActive && (
+                          <button
+                            onClick={() => setConfirmPermanentDelete(user)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-500/90 text-white hover:bg-red-500 transition-colors"
+                          >
+                            Delete Permanently
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -261,6 +300,48 @@ export default function ManageUsers() {
                 className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-400 transition-colors"
               >
                 Deactivate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmPermanentDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-card border border-red-500/40 rounded-xl w-full max-w-sm mx-4 p-6">
+            <h2 className="text-lg font-bold text-foreground mb-2">
+              Permanently delete {confirmPermanentDelete.name}?
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              This cannot be undone. Their account will be completely
+              removed. Type their name below to confirm.
+            </p>
+            <p className="text-xs text-muted-foreground mb-1">
+              Type <span className="font-semibold text-foreground">{confirmPermanentDelete.name}</span> to confirm
+            </p>
+            <input
+              type="text"
+              value={permanentDeleteInput}
+              onChange={(e) => setPermanentDeleteInput(e.target.value)}
+              className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground outline-none focus:border-red-500 mb-5"
+              placeholder="Type full name here"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setConfirmPermanentDelete(null);
+                  setPermanentDeleteInput("");
+                }}
+                className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-sm font-medium hover:bg-white/[0.03] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmPermanentDelete}
+                disabled={!nameMatches}
+                className="flex-1 py-2 rounded-lg bg-red-500 text-white text-sm font-semibold hover:bg-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Delete Permanently
               </button>
             </div>
           </div>
