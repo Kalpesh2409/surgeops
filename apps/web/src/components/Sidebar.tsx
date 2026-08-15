@@ -20,11 +20,25 @@ export default function Sidebar() {
     navigate("/home", { state: { loggedOut: true } });
   }
 
+  const dashboardRoutes: Record<string, string> = {
+    ADMIN: "/admin-dashboard",
+    STORE_MANAGER: "/store-dashboard",
+    REGIONAL_MANAGER: "/regional-dashboard",
+  };
+  const dashboardPath = user ? dashboardRoutes[user.role] || "/admin-dashboard" : "/admin-dashboard";
+
+  // Every role sees Dashboard and Store Overview. Sales Analytics and Users
+  // are limited based on role — Store Manager sees neither, Regional
+  // Manager sees Sales Analytics but not Users, Admin sees everything.
   const links = [
-    { label: "Dashboard", icon: "🏠", to: "/admin-dashboard" },
-    { label: "Sales Analytics", icon: "📊", to: "/sales-analytics" },
+    { label: "Dashboard", icon: "🏠", to: dashboardPath },
+    ...(user?.role !== "STORE_MANAGER"
+      ? [{ label: "Sales Analytics", icon: "📊", to: "/sales-analytics" }]
+      : []),
     { label: "Store Overview", icon: "🏬", to: "/operations" },
-    { label: "Users", icon: "👥", to: "/manage-users" },
+    ...(user?.role === "ADMIN"
+      ? [{ label: "Users", icon: "👥", to: "/manage-users" }]
+      : []),
   ];
 
   const initials = user?.name

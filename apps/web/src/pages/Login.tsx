@@ -35,7 +35,12 @@ export default function Login() {
       localStorage.setItem("surgeops-token", data.token);
       localStorage.setItem("surgeops-user", JSON.stringify(data.user));
 
-      navigate("/admin-dashboard");
+      const roleRoutes: Record<string, string> = {
+        ADMIN: "/admin-dashboard",
+        STORE_MANAGER: "/store-dashboard",
+        REGIONAL_MANAGER: "/regional-dashboard",
+      };
+      navigate(roleRoutes[data.user.role] || "/admin-dashboard");
     } catch (err) {
       console.error(err);
       setError("Something went wrong. Please try again.");
