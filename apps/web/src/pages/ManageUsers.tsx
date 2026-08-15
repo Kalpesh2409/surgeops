@@ -105,6 +105,28 @@ export default function ManageUsers() {
     }
   }
 
+  async function handleReactivate(user: UserRow) {
+    const token = localStorage.getItem("surgeops-token");
+
+    try {
+      const res = await fetch(`${apiUrl}/users/${user.id}/reactivate`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to reactivate user");
+        return;
+      }
+
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong while reactivating the user.");
+    }
+  }
+
   async function handleConfirmPermanentDelete() {
     if (!confirmPermanentDelete) return;
     const token = localStorage.getItem("surgeops-token");
@@ -243,6 +265,14 @@ export default function ManageUsers() {
                             className="text-xs font-medium px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
                           >
                             Deactivate
+                          </button>
+                        )}
+                        {user.id !== currentUserId && !user.isActive && (
+                          <button
+                            onClick={() => handleReactivate(user)}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-colors"
+                          >
+                            Reactivate
                           </button>
                         )}
                         {user.id !== currentUserId && !user.isActive && (
