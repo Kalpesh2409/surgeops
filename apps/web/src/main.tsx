@@ -10,6 +10,7 @@ import About from './pages/About'
 import Home from './pages/Home'
 import ProtectedRoute from './components/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Toaster } from '@/components/ui/toaster'
 
 createRoot(document.getElementById('root')!).render(
   <TooltipProvider>
@@ -46,5 +47,6 @@ createRoot(document.getElementById('root')!).render(
         />
       </Routes>
     </BrowserRouter>
+    <Toaster />
   </TooltipProvider>
 )

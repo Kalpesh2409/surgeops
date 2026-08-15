@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Store {
   id: string;
@@ -20,7 +21,11 @@ interface CreateUserModalProps {
   editingUser?: ExistingUser | null;
 }
 
-export default function CreateUserModal({ onClose, onSaved, editingUser }: CreateUserModalProps) {
+export default function CreateUserModal({
+  onClose,
+  onSaved,
+  editingUser,
+}: CreateUserModalProps) {
   const isEditing = !!editingUser;
 
   const [name, setName] = useState(editingUser?.name || "");
@@ -31,6 +36,7 @@ export default function CreateUserModal({ onClose, onSaved, editingUser }: Creat
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -103,6 +109,11 @@ export default function CreateUserModal({ onClose, onSaved, editingUser }: Creat
 
       onSaved();
       onClose();
+      toast({
+        description: isEditing
+          ? `${name} was updated successfully.`
+          : `${name} was created successfully.`,
+      });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while saving the user.");
@@ -209,7 +220,11 @@ export default function CreateUserModal({ onClose, onSaved, editingUser }: Creat
               disabled={submitting}
               className="flex-1 py-2 rounded-lg bg-sky-500 text-black text-sm font-semibold hover:bg-sky-400 transition-colors disabled:opacity-50"
             >
-              {submitting ? "Saving..." : isEditing ? "Save Changes" : "Create User"}
+              {submitting
+                ? "Saving..."
+                : isEditing
+                  ? "Save Changes"
+                  : "Create User"}
             </button>
           </div>
         </form>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import CreateUserModal from "@/components/CreateUserModal";
+import { useToast } from "@/components/ui/use-toast";
 
 interface UserRow {
   id: string;
@@ -38,6 +39,7 @@ export default function ManageUsers() {
   const [confirmPermanentDelete, setConfirmPermanentDelete] = useState<UserRow | null>(null);
   const [permanentDeleteInput, setPermanentDeleteInput] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -96,8 +98,10 @@ export default function ManageUsers() {
         return;
       }
 
+      const deactivatedName = confirmDeactivate.name;
       setConfirmDeactivate(null);
       fetchUsers();
+      toast({ description: `${deactivatedName} was deactivated.` });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while deactivating the user.");
@@ -121,6 +125,7 @@ export default function ManageUsers() {
       }
 
       fetchUsers();
+      toast({ description: `${user.name} was reactivated.` });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while reactivating the user.");
@@ -145,9 +150,11 @@ export default function ManageUsers() {
         return;
       }
 
+      const deletedName = confirmPermanentDelete.name;
       setConfirmPermanentDelete(null);
       setPermanentDeleteInput("");
       fetchUsers();
+      toast({ description: `${deletedName} was permanently deleted.` });
     } catch (err) {
       console.error(err);
       setError("Something went wrong while deleting the user.");
