@@ -1,12 +1,14 @@
-import { Router, Request, Response, NextFunction } from "express";
+import { Router, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
+import { requireAuth, AuthenticatedRequest } from "../middleware/authMiddleware";
 
 export const storesRouter = Router();
 
 // GET /stores — list all 4 dark stores
 storesRouter.get(
   "/",
-  async (_req: Request, res: Response, next: NextFunction) => {
+  requireAuth,
+  async (_req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const stores = await prisma.store.findMany({
         orderBy: { createdAt: "asc" },
@@ -39,9 +41,20 @@ storesRouter.get(
 // GET /stores/:id/inventory — full inventory for a single store
 storesRouter.get(
   "/:id/inventory",
-  async (req: Request, res: Response, next: NextFunction) => {
+  requireAuth,
+  async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
+
+      // Store Managers can only ever see their own store's inventory,
+      // even if someone tries to request a different store ID directly.
+      if (req.user?.role === "STORE_MANAGER" && req.user.storeId !== id) {
+        res.status(403).json({
+          success: false,
+          error: "You do not have access to this store's inventory",
+        });
+        return;
+      }
 
       const store = await prisma.store.findUnique({
         where: { id },

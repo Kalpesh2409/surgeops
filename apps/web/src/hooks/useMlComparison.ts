@@ -34,7 +34,10 @@ export function useMlComparison(storeId: string): UseMlComparisonResult {
 
   const fetchComparison = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/pricing/compare/${storeId}`);
+      const token = localStorage.getItem("surgeops-token");
+      const res = await fetch(`${API_BASE}/pricing/compare/${storeId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const data = await res.json();
       setComparison(data.comparison ?? []);

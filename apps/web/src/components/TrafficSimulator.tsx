@@ -46,9 +46,13 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
   const [resetting, setResetting] = useState(false);
 
   async function inject(multiplier: number) {
+    const token = localStorage.getItem("surgeops-token");
     const res = await fetch(`${API_BASE}/simulator/inject`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ storeId, multiplier }),
     });
     if (!res.ok) throw new Error(`Inject failed: HTTP ${res.status}`);
@@ -92,8 +96,10 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
     if (loadingKey || ddosRunning || resetting) return;
     setResetting(true);
     try {
+      const token = localStorage.getItem("surgeops-token");
       const res = await fetch(`${API_BASE}/simulator/reset/${storeId}`, {
         method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error(`Reset failed: HTTP ${res.status}`);
     } catch (err) {

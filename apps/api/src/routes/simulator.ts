@@ -14,23 +14,24 @@ import {
   computeLevelPercent,
 } from "../lib/inventoryStatus";
 import { stockMatrix } from "../data/baselineStock";
+import { requireAuth, requireAdmin } from "../middleware/authMiddleware";
 
 const router = Router();
 const prisma = new PrismaClient();
 
 // GET /simulator/status
-router.get("/status", (_req: Request, res: Response) => {
+router.get("/status", requireAuth, requireAdmin, (_req: Request, res: Response) => {
   res.json(getSimulatorStatus());
 });
 
 // POST /simulator/start
-router.post("/start", (_req: Request, res: Response) => {
+router.post("/start", requireAuth, requireAdmin, (_req: Request, res: Response) => {
   startSimulator();
   res.json({ message: "Simulator started", status: getSimulatorStatus() });
 });
 
 // POST /simulator/stop
-router.post("/stop", (_req: Request, res: Response) => {
+router.post("/stop", requireAuth, requireAdmin, (_req: Request, res: Response) => {
   stopSimulator();
   res.json({ message: "Simulator stopped", status: getSimulatorStatus() });
 });
@@ -194,7 +195,7 @@ async function injectForProduct(
 }
 
 // POST /simulator/inject
-router.post("/inject", async (req: Request, res: Response) => {
+router.post("/inject", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   console.log("[Inject] req.body =", req.body);
   console.log("[Inject] content-type =", req.headers["content-type"]);
   const {
@@ -304,7 +305,7 @@ router.post("/inject", async (req: Request, res: Response) => {
  * This guarantees the demo reliably reaches both real zone states,
  * instead of assuming a fixed subset size will land where we expect.
  */
-router.post("/demo-ramp", async (req: Request, res: Response) => {
+router.post("/demo-ramp", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const { storeId, stageDelayMs = 8000 } = req.body as {
     storeId: string;
     stageDelayMs?: number;
@@ -486,7 +487,7 @@ router.post("/demo-ramp", async (req: Request, res: Response) => {
  * false/uncapped immediately after a reset, since prices go back to their
  * Day 1 baseline values, which by design never exceed MRP).
  */
-router.post("/reset/:storeId", async (req: Request, res: Response) => {
+router.post("/reset/:storeId", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   const { storeId } = req.params;
 
   try {

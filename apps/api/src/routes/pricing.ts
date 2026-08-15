@@ -1,7 +1,8 @@
-import { Router, Request, Response } from "express";
+import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { getRedis, CacheKeys } from "../lib/redisClient";
 import { startDemandIngestionLoop } from "../services/demandIngestionLoop";
+import { requireAuth, AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -9,8 +10,14 @@ const prisma = new PrismaClient();
 // ─── GET /pricing/current/:storeId ────────────────────────────────────────────
 // Returns current prices for all products in a store.
 // Cache-first: checks store:{storeId}:prices (TTL 30s) → DB fallback.
-router.get("/current/:storeId", async (req: Request, res: Response) => {
+router.get("/current/:storeId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { storeId } = req.params;
+
+  // Store Managers can only ever see their own store's prices.
+  if (req.user?.role === "STORE_MANAGER" && req.user.storeId !== storeId) {
+    return res.status(403).json({ error: "You do not have access to this store's pricing" });
+  }
+
   const redis = getRedis();
   const cacheKey = CacheKeys.storePrice(storeId);
 
@@ -132,14 +139,18 @@ router.get("/current/:storeId", async (req: Request, res: Response) => {
 // ─── GET /pricing/product/:productId ──────────────────────────────────────────
 // Returns prices for a specific product across all stores.
 // Cache-first: checks price:{storeId}:{productId} per store → DB fallback.
-router.get("/product/:productId", async (req: Request, res: Response) => {
+// Store Managers only get results for their own store, not every store
+// that carries this product.
+router.get("/product/:productId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { productId } = req.params;
   const redis = getRedis();
 
   try {
-    // Find all stores that carry this product
     const inventoryRows = await prisma.inventory.findMany({
-      where: { productId },
+      where:
+        req.user?.role === "STORE_MANAGER"
+          ? { productId, storeId: req.user.storeId ?? "" }
+          : { productId },
       include: {
         store: { select: { id: true, name: true, city: true } },
         product: { select: { id: true, name: true, sku: true } },
@@ -202,8 +213,13 @@ router.get("/product/:productId", async (req: Request, res: Response) => {
 // (falls back to it since writePriceUpdates() only writes a PricingSuggestion
 // audit row when price actually changes — epsilon-skip means many products
 // won't have a recent surge_engine_v1 row even though the price is current).
-router.get("/compare/:storeId", async (req: Request, res: Response) => {
+router.get("/compare/:storeId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { storeId } = req.params;
+
+  // Store Managers can only compare pricing for their own store.
+  if (req.user?.role === "STORE_MANAGER" && req.user.storeId !== storeId) {
+    return res.status(403).json({ error: "You do not have access to this store's pricing comparison" });
+  }
 
   try {
     const inventory = await prisma.inventory.findMany({
@@ -283,11 +299,16 @@ router.get("/compare/:storeId", async (req: Request, res: Response) => {
 
 // ─── POST /pricing/recalculate ─────────────────────────────────────────────────
 // Invalidates cache for the store, then triggers a fresh ingestion tick.
-router.post("/recalculate", async (req: Request, res: Response) => {
+router.post("/recalculate", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { storeId } = req.body as { storeId?: string };
 
   if (!storeId) {
     return res.status(400).json({ error: "storeId is required" });
+  }
+
+  // Store Managers can only trigger a recalculation for their own store.
+  if (req.user?.role === "STORE_MANAGER" && req.user.storeId !== storeId) {
+    return res.status(403).json({ error: "You do not have access to recalculate this store" });
   }
 
   const redis = getRedis();

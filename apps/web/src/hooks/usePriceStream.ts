@@ -59,13 +59,17 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
   useEffect(() => {
     if (!storeId) return;
 
+    const token = localStorage.getItem("surgeops-token");
+
     setStatus("connecting");
     setPrices({});
     setInventory({});
     setEvents([]);
 
     // Initial price load
-    fetch(`${API_BASE}/pricing/current/${storeId}`)
+    fetch(`${API_BASE}/pricing/current/${storeId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((data: { prices: PriceEntry[] }) => {
         const map: Record<string, PriceEntry> = {};
@@ -91,7 +95,9 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
       .catch(() => {});
 
     // Initial inventory load
-    fetch(`${API_BASE}/inventory/${storeId}`)
+    fetch(`${API_BASE}/inventory/${storeId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then((r) => r.json())
       .then((data: { inventory: InventoryItem[] }) => {
         const map: Record<string, InventoryItem> = {};
@@ -102,7 +108,11 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
       })
       .catch(() => {});
 
-    const es = new EventSource(`${API_BASE}/stream/${storeId}`);
+    // EventSource can't send Authorization headers, so the token is
+    // passed as a query param instead — the backend checks it there.
+    const es = new EventSource(
+      `${API_BASE}/stream/${storeId}?token=${encodeURIComponent(token || "")}`,
+    );
     esRef.current = es;
 
     es.addEventListener("connected", () => {
