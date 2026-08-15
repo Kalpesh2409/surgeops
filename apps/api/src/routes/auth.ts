@@ -2,14 +2,27 @@ import { Router, Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
 
 const router = Router();
 const prisma = new PrismaClient();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Blocks repeated login attempts from the same visitor — stops someone
+// from rapidly guessing passwords. Only failed attempts count; a
+// successful login does not use up any of the 5 tries.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  skipSuccessfulRequests: true,
+  message: { error: "Too many login attempts. Please try again in 15 minutes." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // POST /auth/login
-router.post("/login", async (req: Request, res: Response) => {
+router.post("/login", loginLimiter, async (req: Request, res: Response) => {
   if (!JWT_SECRET) {
     console.error("[Auth] JWT_SECRET is not set in .env");
     return res.status(500).json({ error: "Server misconfiguration" });
