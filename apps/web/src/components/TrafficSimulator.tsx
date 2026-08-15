@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Zap, Flame, AlertTriangle, RotateCcw } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
@@ -44,6 +45,7 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
   const [ddosRunning, setDdosRunning] = useState(false);
   const [ddosProgress, setDdosProgress] = useState(0);
   const [resetting, setResetting] = useState(false);
+  const { toast } = useToast();
 
   async function inject(multiplier: number) {
     const token = localStorage.getItem("surgeops-token");
@@ -55,6 +57,12 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
       },
       body: JSON.stringify({ storeId, multiplier }),
     });
+    if (res.status === 429) {
+      const data = await res.json().catch(() => null);
+      throw new Error(
+        data?.error || "Too many requests. Please wait a moment and try again.",
+      );
+    }
     if (!res.ok) throw new Error(`Inject failed: HTTP ${res.status}`);
     return res.json();
   }
@@ -66,6 +74,12 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
       await inject(button.multiplier);
     } catch (err) {
       console.error("[TrafficSimulator] inject failed:", err);
+      toast({
+        description:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+      });
     } finally {
       setLoadingKey(null);
     }
@@ -81,6 +95,13 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
         await inject(DDOS_MULTIPLIERS[i]);
       } catch (err) {
         console.error("[TrafficSimulator] DDoS inject failed:", err);
+        toast({
+          description:
+            err instanceof Error
+              ? err.message
+              : "Something went wrong during the DDoS simulation.",
+        });
+        break;
       }
       setDdosProgress(i + 1);
       if (i < DDOS_MULTIPLIERS.length - 1) {
@@ -101,9 +122,21 @@ export function TrafficSimulator({ storeId }: { storeId: string }) {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (res.status === 429) {
+        const data = await res.json().catch(() => null);
+        throw new Error(
+          data?.error || "Too many requests. Please wait a moment and try again.",
+        );
+      }
       if (!res.ok) throw new Error(`Reset failed: HTTP ${res.status}`);
     } catch (err) {
       console.error("[TrafficSimulator] reset failed:", err);
+      toast({
+        description:
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again.",
+      });
     } finally {
       setResetting(false);
     }
