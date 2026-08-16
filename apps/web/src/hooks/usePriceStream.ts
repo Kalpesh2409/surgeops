@@ -27,6 +27,7 @@ export interface InventoryItem {
   reorderQty: number;
   status: "HEALTHY" | "LOW_STOCK" | "CRITICAL";
   levelPercent: number;
+  stockoutProjectionHours: number | null;
 }
 
 export interface PriceEvent {
@@ -163,7 +164,9 @@ export function usePriceStream(storeId: string): UsePriceStreamResult {
         reorderQty: raw.reorderQty,
         status: raw.status,
         levelPercent: raw.levelPercent,
+        stockoutProjectionHours: raw.stockoutProjectionHours ?? null,
       };
+
       setInventory((prev) => ({ ...prev, [item.productId]: item }));
 
       if (raw.unitsOrdered > 0) {

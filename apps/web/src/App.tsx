@@ -9,6 +9,7 @@ import { InventoryPanel } from "@/components/InventoryPanel";
 import { TrafficSimulator } from "@/components/TrafficSimulator";
 import { MlComparisonPanel } from "@/components/MlComparisonPanel";
 import { ZoneCard } from "@/components/ZoneCard";
+import { StockoutAlerts } from "@/components/StockoutAlerts";
 
 interface StoredUser {
   id: string;
@@ -132,6 +133,9 @@ export default function App() {
         </Card>
         {/* ML Comparison Panel */}
         <MlComparisonPanel storeId={storeId} />
+
+        {/* Stockout Alerts — full width, above the two-column section */}
+        <StockoutAlerts inventory={inventory} />
 
         {/* Bottom panels */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

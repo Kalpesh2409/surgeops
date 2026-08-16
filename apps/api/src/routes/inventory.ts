@@ -6,6 +6,9 @@ import { requireAuth, AuthenticatedRequest } from "../middleware/authMiddleware"
 const router = Router();
 const prisma = new PrismaClient();
 
+const RATE_WINDOW_HOURS = 2;
+const ALERT_THRESHOLD_HOURS = 6;
+
 // GET /inventory/:storeId
 router.get("/:storeId", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   const { storeId } = req.params;
@@ -33,8 +36,43 @@ router.get("/:storeId", requireAuth, async (req: AuthenticatedRequest, res: Resp
       },
     });
 
+    // Recent sales, used to project stockout timing. Looks at real
+    // OrderItem rows (both simulator-generated and real orders) placed
+    // within the last RATE_WINDOW_HOURS for this store.
+    const windowStart = new Date(Date.now() - RATE_WINDOW_HOURS * 60 * 60 * 1000);
+    const recentItems = await prisma.orderItem.findMany({
+      where: {
+        productId: { in: items.map((i) => i.productId) },
+        order: { storeId, placedAt: { gte: windowStart } },
+      },
+      select: { productId: true, quantity: true },
+    });
+
+    const soldByProduct = new Map<string, number>();
+    for (const row of recentItems) {
+      soldByProduct.set(
+        row.productId,
+        (soldByProduct.get(row.productId) ?? 0) + row.quantity,
+      );
+    }
+
     const snapshot = items.map((item) => {
       const { quantityOnHand, reorderLevel, reorderQty } = item;
+
+      const unitsSoldRecently = soldByProduct.get(item.productId) ?? 0;
+      const hourlyRate = unitsSoldRecently / RATE_WINDOW_HOURS;
+
+      // Only project a stockout time when there's real recent sales
+      // activity — dividing by zero or projecting from a stale rate
+      // would be meaningless.
+      let stockoutProjectionHours: number | null = null;
+      if (hourlyRate > 0) {
+        const hoursRemaining = quantityOnHand / hourlyRate;
+        if (hoursRemaining <= ALERT_THRESHOLD_HOURS) {
+          stockoutProjectionHours = Math.round(hoursRemaining * 10) / 10;
+        }
+      }
+
       return {
         productId: item.productId,
         name: item.product.name,
@@ -44,6 +82,7 @@ router.get("/:storeId", requireAuth, async (req: AuthenticatedRequest, res: Resp
         reorderQty,
         status: computeInventoryStatus(quantityOnHand, reorderLevel),
         levelPercent: computeLevelPercent(quantityOnHand, reorderLevel, reorderQty),
+        stockoutProjectionHours,
       };
     });
 

@@ -194,6 +194,29 @@ async function injectForProduct(
     inventory.currentPrice,
   );
 
+  // Calculate a live stockout projection, same logic as the one-time
+  // inventory endpoint uses — so the live SSE update and a fresh page
+  // load always agree, instead of only updating on refresh.
+  const RATE_WINDOW_HOURS = 2;
+  const ALERT_THRESHOLD_HOURS = 6;
+  const windowStart = new Date(Date.now() - RATE_WINDOW_HOURS * 60 * 60 * 1000);
+  const recentSales = await prisma.orderItem.aggregate({
+    where: {
+      productId,
+      order: { storeId, placedAt: { gte: windowStart } },
+    },
+    _sum: { quantity: true },
+  });
+  const unitsSoldRecently = recentSales._sum.quantity ?? 0;
+  const hourlyRate = unitsSoldRecently / RATE_WINDOW_HOURS;
+  let stockoutProjectionHours: number | null = null;
+  if (hourlyRate > 0) {
+    const hoursRemaining = quantityAfter / hourlyRate;
+    if (hoursRemaining <= ALERT_THRESHOLD_HOURS) {
+      stockoutProjectionHours = Math.round(hoursRemaining * 10) / 10;
+    }
+  }
+
   broadcast(
     storeId,
     {
@@ -211,6 +234,7 @@ async function injectForProduct(
         inventory.reorderLevel,
         inventory.reorderQty,
       ),
+      stockoutProjectionHours,
       updatedAt: new Date().toISOString(),
     },
     "stock-update",
