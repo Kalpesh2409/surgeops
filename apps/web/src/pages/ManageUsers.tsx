@@ -31,7 +31,7 @@ function initialsOf(name: string) {
 
 export default function ManageUsers() {
   const [users, setUsers] = useState<UserRow[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRow | null>(null);
@@ -53,14 +53,15 @@ export default function ManageUsers() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to load users");
+        setLoadError(data.error || "Failed to load users");
         return;
       }
 
       setUsers(data.users);
+      setLoadError(null);
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while loading users.");
+      setLoadError("Something went wrong while loading users.");
     } finally {
       setLoading(false);
     }
@@ -93,7 +94,7 @@ export default function ManageUsers() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to deactivate user");
+        toast({ description: data.error || "Failed to deactivate user" });
         setConfirmDeactivate(null);
         return;
       }
@@ -104,7 +105,7 @@ export default function ManageUsers() {
       toast({ description: `${deactivatedName} was deactivated.` });
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while deactivating the user.");
+      toast({ description: "Something went wrong while deactivating the user." });
       setConfirmDeactivate(null);
     }
   }
@@ -120,7 +121,7 @@ export default function ManageUsers() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to reactivate user");
+        toast({ description: data.error || "Failed to reactivate user" });
         return;
       }
 
@@ -128,7 +129,7 @@ export default function ManageUsers() {
       toast({ description: `${user.name} was reactivated.` });
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while reactivating the user.");
+      toast({ description: "Something went wrong while reactivating the user." });
     }
   }
 
@@ -144,7 +145,7 @@ export default function ManageUsers() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to permanently delete user");
+        toast({ description: data.error || "Failed to permanently delete user" });
         setConfirmPermanentDelete(null);
         setPermanentDeleteInput("");
         return;
@@ -157,7 +158,7 @@ export default function ManageUsers() {
       toast({ description: `${deletedName} was permanently deleted.` });
     } catch (err) {
       console.error(err);
-      setError("Something went wrong while deleting the user.");
+      toast({ description: "Something went wrong while deleting the user." });
       setConfirmPermanentDelete(null);
       setPermanentDeleteInput("");
     }
@@ -186,9 +187,9 @@ export default function ManageUsers() {
         </p>
 
         {loading && <p className="text-muted-foreground">Loading...</p>}
-        {error && <p className="text-red-500">{error}</p>}
+        {loadError && <p className="text-red-500">{loadError}</p>}
 
-        {!loading && !error && (
+        {!loading && !loadError && (
           <div className="border border-border rounded-xl overflow-hidden bg-card">
             <table className="w-full text-sm">
               <thead>
