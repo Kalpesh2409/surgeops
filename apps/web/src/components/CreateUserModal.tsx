@@ -45,7 +45,10 @@ export default function CreateUserModal({
   useEffect(() => {
     async function fetchStores() {
       try {
-        const res = await fetch(`${apiUrl}/stores`);
+        const token = localStorage.getItem("surgeops-token");
+        const res = await fetch(`${apiUrl}/stores`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await res.json();
         if (data.success) {
           setStores(data.data);
