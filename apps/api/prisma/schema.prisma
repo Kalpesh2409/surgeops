@@ -191,6 +191,7 @@ model User {
   passwordHash String // scrambled password — never stored as plain text
   role         Role     @default(STORE_MANAGER)
   isActive     Boolean  @default(true) // false = deactivated (soft delete) — blocks login, keeps record
+  isDemo       Boolean  @default(false) // true = public demo account, view-only on Manage Users
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

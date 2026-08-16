@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
-import { requireAuth, requireAdmin, AuthenticatedRequest } from "../middleware/authMiddleware";
+import { requireAuth, requireAdmin, blockDemoAccount, AuthenticatedRequest } from "../middleware/authMiddleware";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -39,7 +39,8 @@ router.get("/", requireAuth, async (_req: AuthenticatedRequest, res: Response) =
 // Creates a new staff login account. Admin-only — Store Managers and
 // Regional Managers cannot create accounts. Password is scrambled with
 // bcrypt before saving; it is never stored or returned as plain text.
-router.post("/", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Blocked for demo accounts.
+router.post("/", requireAuth, requireAdmin, blockDemoAccount, async (req: AuthenticatedRequest, res: Response) => {
   const { name, email, password, role, storeId } = req.body as {
     name?: string;
     email?: string;
@@ -94,7 +95,8 @@ router.post("/", requireAuth, requireAdmin, async (req: AuthenticatedRequest, re
 // Updates an existing user's Name, Email, Role, or Store. Admin-only.
 // Password is never changed here — that would need a separate, more
 // careful flow (e.g. "reset password") since it involves re-hashing.
-router.patch("/:id", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Blocked for demo accounts.
+router.patch("/:id", requireAuth, requireAdmin, blockDemoAccount, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { name, email, role, storeId } = req.body as {
     name?: string;
@@ -157,7 +159,8 @@ router.patch("/:id", requireAuth, requireAdmin, async (req: AuthenticatedRequest
 // Soft-deletes a user — sets isActive to false so they can no longer log
 // in, but keeps their record for history. Admin-only. Blocks an Admin
 // from deactivating their own account, to avoid accidental lockout.
-router.delete("/:id", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Blocked for demo accounts.
+router.delete("/:id", requireAuth, requireAdmin, blockDemoAccount, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   if (req.user?.userId === id) {
@@ -182,12 +185,39 @@ router.delete("/:id", requireAuth, requireAdmin, async (req: AuthenticatedReques
   }
 });
 
+// PATCH /users/:id/reactivate
+// Reverses a soft-delete — sets isActive back to true so the user can
+// log in again. Admin-only. Only meaningful for users who are currently
+// deactivated; the frontend only shows this option in that case.
+// Blocked for demo accounts.
+router.patch("/:id/reactivate", requireAuth, requireAdmin, blockDemoAccount, async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await prisma.user.update({
+      where: { id },
+      data: { isActive: true },
+    });
+
+    return res.json({ message: "User reactivated successfully" });
+  } catch (err) {
+    console.error("[Users] PATCH /:id/reactivate error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // DELETE /users/:id/permanent
 // Permanently removes a user from the database — cannot be undone.
 // Admin-only. Blocks deleting your own account. Only meant to be used
 // on accounts that are already deactivated (soft-deleted), as a final
 // cleanup step — the frontend enforces this two-step flow.
-router.delete("/:id/permanent", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+// Blocked for demo accounts.
+router.delete("/:id/permanent", requireAuth, requireAdmin, blockDemoAccount, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   if (req.user?.userId === id) {
@@ -213,28 +243,4 @@ router.delete("/:id/permanent", requireAuth, requireAdmin, async (req: Authentic
   }
 });
 
-// PATCH /users/:id/reactivate
-// Reverses a soft-delete — sets isActive back to true so the user can
-// log in again. Admin-only. Only meaningful for users who are currently
-// deactivated; the frontend only shows this option in that case.
-router.patch("/:id/reactivate", requireAuth, requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-
-  try {
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (!existing) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    await prisma.user.update({
-      where: { id },
-      data: { isActive: true },
-    });
-
-    return res.json({ message: "User reactivated successfully" });
-  } catch (err) {
-    console.error("[Users] PATCH /:id/reactivate error:", err);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
 export default router;
