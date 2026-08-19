@@ -1,9 +1,22 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
 function ParticleNetwork() {
   const groupRef = useRef<THREE.Group>(null);
+  const mouse = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      // Normalize cursor position to a -1..1 range, relative to the
+      // center of the screen, so the tilt direction feels natural
+      // regardless of window size.
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = (e.clientY / window.innerHeight) * 2 - 1;
+    }
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const { points, linePositions } = useMemo(() => {
     const count = 60;
@@ -37,6 +50,26 @@ function ParticleNetwork() {
     if (groupRef.current) {
       groupRef.current.rotation.y += delta * 0.08;
       groupRef.current.rotation.x += delta * 0.02;
+
+      // Gently tilt toward the cursor on top of the automatic rotation,
+      // smoothed with lerp so it feels fluid rather than snapping.
+      const targetTiltX = mouse.current.y * 0.3;
+      const targetTiltY = mouse.current.x * 0.3;
+      groupRef.current.rotation.x = THREE.MathUtils.lerp(
+        groupRef.current.rotation.x,
+        groupRef.current.rotation.x + (targetTiltX - groupRef.current.rotation.x) * 0.05,
+        1,
+      );
+      groupRef.current.position.x = THREE.MathUtils.lerp(
+        groupRef.current.position.x,
+        targetTiltY,
+        0.05,
+      );
+      groupRef.current.position.y = THREE.MathUtils.lerp(
+        groupRef.current.position.y,
+        -targetTiltX,
+        0.05,
+      );
     }
   });
 
