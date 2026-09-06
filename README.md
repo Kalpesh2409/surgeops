@@ -78,52 +78,56 @@ sequenceDiagram
 ```
 
 ## Project Structure
-├── .github/ # GitHub Actions CI workflows
+
+\`\`\`
+surgeops/
+├── .github/                      # GitHub Actions CI workflows
 ├── apps/
-│ ├── api/ # Node.js + Express + TypeScript API
-│ │ ├── prisma/
-│ │ │ ├── migrations/
-│ │ │ ├── seed/
-│ │ │ └── schema.prisma
-│ │ ├── scripts/
-│ │ │ ├── createInitialUsers.ts
-│ │ │ ├── resetDemoData.ts
-│ │ │ ├── runMlPricingSuggestions.ts
-│ │ │ └── seedHistory.ts
-│ │ └── src/
-│ │ ├── tests/
-│ │ ├── lib/ # prisma client, redis client, sseManager, inventoryStatus
-│ │ ├── middleware/ # auth, errorHandler, blockDemoAccount
-│ │ ├── routes/ # analytics, auth, health, inventory, pricing, simulator, stores, stream, users
-│ │ ├── services/ # pricingEngine, mlPricingSuggester, explanationBuilder,
-│ │ │ # demandIngestionLoop, orderSimulator, priceUpdateWriter, etc.
-│ │ ├── app.ts
-│ │ └── index.ts
-│ ├── docs/ # Project docs (e.g. demo rehearsal scripts)
-│ ├── ml/ # Python + FastAPI + scikit-learn ML service
-│ │ ├── main.py # FastAPI app entry point
-│ │ ├── train.py # Model training script
-│ │ ├── build_features.py
-│ │ ├── model.pkl / product_encoder.pkl / store_encoder.pkl / avg_demand.pkl
-│ │ └── requirements.txt
-│ └── web/ # React + TypeScript + Tailwind frontend
-│ ├── public/
-│ └── src/
-│ ├── assets/
-│ ├── components/
-│ │ ├── ui/ # shadcn/ui primitives (badge, button, card, select, etc.)
-│ │ ├── tests/
-│ │ └── ZoneCard.tsx, PriceTable.tsx, StoreSelector.tsx,
-│ │ InventoryPanel.tsx, MlComparisonPanel.tsx, TrafficSimulator.tsx, etc.
-│ ├── hooks/ # usePriceStream, useMlComparison, useAnimatedNumber
-│ ├── lib/ # utils, zoneHeat
-│ ├── pages/ # Home, Login, AdminDashboard, ManageUsers, SalesAnalytics, About
-│ ├── App.tsx
-│ └── main.tsx
+│   ├── api/                      # Node.js + Express + TypeScript API
+│   │   ├── prisma/
+│   │   │   ├── migrations/
+│   │   │   ├── seed/
+│   │   │   └── schema.prisma
+│   │   ├── scripts/
+│   │   │   ├── createInitialUsers.ts
+│   │   │   ├── resetDemoData.ts
+│   │   │   ├── runMlPricingSuggestions.ts
+│   │   │   └── seedHistory.ts
+│   │   └── src/
+│   │       ├── __tests__/
+│   │       ├── lib/                # prisma client, redis client, sseManager, inventoryStatus
+│   │       ├── middleware/         # auth, errorHandler, blockDemoAccount
+│   │       ├── routes/             # analytics, auth, health, inventory, pricing, simulator, stores, stream, users
+│   │       ├── services/           # pricingEngine, mlPricingSuggester, explanationBuilder,
+│   │       │                       # demandIngestionLoop, orderSimulator, priceUpdateWriter, etc.
+│   │       ├── app.ts
+│   │       └── index.ts
+│   ├── docs/                     # Project docs (e.g. demo rehearsal scripts)
+│   ├── ml/                       # Python + FastAPI + scikit-learn ML service
+│   │   ├── main.py                 # FastAPI app entry point
+│   │   ├── train.py                # Model training script
+│   │   ├── build_features.py
+│   │   ├── model.pkl / product_encoder.pkl / store_encoder.pkl / avg_demand.pkl
+│   │   └── requirements.txt
+│   └── web/                      # React + TypeScript + Tailwind frontend
+│       ├── public/
+│       └── src/
+│           ├── assets/
+│           ├── components/
+│           │   ├── ui/              # shadcn/ui primitives (badge, button, card, select, etc.)
+│           │   ├── __tests__/
+│           │   └── ZoneCard.tsx, PriceTable.tsx, StoreSelector.tsx,
+│           │       InventoryPanel.tsx, MlComparisonPanel.tsx, TrafficSimulator.tsx, etc.
+│           ├── hooks/               # usePriceStream, useMlComparison, useAnimatedNumber
+│           ├── lib/                 # utils, zoneHeat
+│           ├── pages/                # Home, Login, AdminDashboard, ManageUsers, SalesAnalytics, About
+│           ├── App.tsx
+│           └── main.tsx
 ├── .env.example
-├── docker-compose.yml # Postgres + Redis (local dev)
+├── docker-compose.yml             # Postgres + Redis (local dev)
 ├── LICENSE
 └── README.md
+\`\`\`
 
 
 ## Security
