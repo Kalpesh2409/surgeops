@@ -76,9 +76,10 @@ sequenceDiagram
     API-->>Web: Push live update via SSE
     Note over API: A separate background loop checks<br/>recent sales velocity and fires<br/>stockout alerts independently
 ```
+
 ## Project Structure
 
-\`\`\`
+```
 surgeops/
 ├── .github/                      # GitHub Actions CI workflows
 ├── apps/
@@ -126,7 +127,7 @@ surgeops/
 ├── docker-compose.yml             # Postgres + Redis (local dev)
 ├── LICENSE
 └── README.md
-\`\`\`
+```
 
 ## Security
 
