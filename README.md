@@ -21,9 +21,13 @@
 
 ## Problem Statement
 
-Dark stores in Indian quick-commerce operate on thin margins against highly volatile, hyperlocal demand — a heatwave spikes cold-drink orders, a downpour spikes staples, and static pricing/inventory rules can't keep up. Manual price reviews lag the spike; fixed markups leave margin on the table during stockout-risk windows; and inventory imbalances between stores go unaddressed.
+Quick-commerce stores need to manage prices, demand, and inventory at the same time. Customer demand can change quickly — for example, hot weather can increase cold-drink sales, while heavy rain can increase demand for groceries and essentials.
 
-**SurgeOps** simulates a real-time pricing and inventory system across four dark stores (Bandra West, Kothrud, Koramangala, Noida), pairing a rules engine with an ML demand model so the two can cross-check each other — with live state pushed to a dashboard via SSE.
+If prices and inventory are managed manually, it can be difficult to react quickly. A store may run out of popular products, keep too much stock of slow-selling products, or miss opportunities to adjust prices.
+
+**SurgeOps** was created to explore how technology can help solve this problem. It simulates a system that monitors demand and inventory across four dark stores and automatically suggests prices using real-time demand, historical data, machine learning, and pricing safety rules.
+
+The system then shows these changes in a live dashboard so store operators can understand what is happening and why.
 
 ## Tech Stack
 
