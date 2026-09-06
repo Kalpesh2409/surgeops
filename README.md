@@ -77,7 +77,6 @@ sequenceDiagram
     Note over API: A separate background loop checks<br/>recent sales velocity and fires<br/>stockout alerts independently
 ```
 ## Project Structure
-
 \`\`\`
 surgeops/
 ├── .github/                      # GitHub Actions CI workflows
@@ -129,7 +128,6 @@ surgeops/
 \`\`\`
 
 ## Security
-
 This isn't a toy demo left wide open — a few real protections are in place:
 
 - **Rate limiting** on login attempts and on the Traffic Simulator's endpoints, to prevent abuse (exact thresholds intentionally not published here).
