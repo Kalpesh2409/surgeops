@@ -1,5 +1,5 @@
 /**
- * runMlPricingSuggestions.ts - SurgeOps Session 13
+* runMlPricingSuggestions.ts - SurgeOps
  *
  * Runs the ML-based pricing suggestion pipeline once and prints a summary.
  * Usage: cd apps/api && npx ts-node scripts/runMlPricingSuggestions.ts

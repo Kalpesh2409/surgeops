@@ -1,7 +1,7 @@
 // src/index.ts
-// Session 6 patch: Redis graceful disconnect + health router registration
-// Session 14: wired mlSuggestionLoop into boot + shutdown alongside demandIngestionLoop.
-// Session 24: split Express app config into app.ts for testability.
+// Redis graceful disconnect + health router registration
+// Wired mlSuggestionLoop into boot + shutdown alongside demandIngestionLoop.
+// Split Express app config into app.ts for testability.
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { app } from "./app";
@@ -37,7 +37,7 @@ async function shutdown(signal: string) {
   stopSimulator();
   stopDemandIngestionLoop();
   stopMlSuggestionLoop();
-  await disconnectRedis(); // ← Session 6: Redis disconnect
+  await disconnectRedis(); // Redis disconnect
   await prisma.$disconnect();
   process.exit(0);
 }

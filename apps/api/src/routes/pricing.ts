@@ -23,7 +23,7 @@ router.get("/current/:storeId", requireAuth, async (req: AuthenticatedRequest, r
 
   try {
     // --- Cache check ---
-    // Session 27 (MRP pass): mrp/cappedAtMrp are already included here
+    // MRP pass: mrp/cappedAtMrp are already included here
     // automatically, since demandIngestionLoop.ts and priceUpdateWriter.ts
     // now write those fields into the cache payload directly.
     const cached = await redis.get(cacheKey);
@@ -81,7 +81,7 @@ router.get("/current/:storeId", requireAuth, async (req: AuthenticatedRequest, r
             ? parseFloat((currentPrice / basePrice).toFixed(4))
             : 1.0;
 
-        // Session 27 fix: removed the "price sits at MRP" heuristic — it
+        // Fix: removed the "price sits at MRP" heuristic — it
         // produced false positives whenever mrp == basePrice (the normal
         // case for these products), flagging every untouched price as
         // "capped" even with zero surge activity. The DB-fallback path only
@@ -208,7 +208,7 @@ router.get("/product/:productId", requireAuth, async (req: AuthenticatedRequest,
 
 // ─── GET /pricing/compare/:storeId ─────────────────────────────────────────────
 // Returns rules-engine vs ML pricing suggestions side by side, per product,
-// for the ML comparison panel (Session 14).
+// for the ML comparison panel.
 // Rules-engine price uses Inventory.currentPrice as the source of truth
 // (falls back to it since writePriceUpdates() only writes a PricingSuggestion
 // audit row when price actually changes — epsilon-skip means many products

@@ -1,5 +1,5 @@
 ﻿/**
- * mlPricingSuggester.ts - SurgeOps Session 15 (baseline-ratio update)
+ * mlPricingSuggester.ts - SurgeOps (baseline-ratio update)
  *
  * Calls the Python ML service's /predict endpoint for each store×product,
  * converts predicted demand into a suggested price via a continuous

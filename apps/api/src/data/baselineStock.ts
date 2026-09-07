@@ -8,7 +8,7 @@
 // If you ever change these numbers, change them ONLY here — both the seed
 // script and the reset endpoint will pick up the change automatically.
 //
-// Session 27 (MRP correction pass): currentPrice values updated to match
+// MRP correction pass: currentPrice values updated to match
 // the corrected, realistic basePrice values now used in the seed script
 // (Tata Salt, Fortune Oil, Lay's Chips, Parle-G, Kurkure, Amul Milk,
 // Amul Butter, Maggi, Yippee Noodles, MTR Poha). Two entries remain

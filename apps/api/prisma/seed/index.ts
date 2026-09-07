@@ -107,15 +107,16 @@ async function main() {
   console.log(`  ✅ ${categories.length} categories created\n`);
 
   // ─── PRODUCTS ─────────────────────────────────────────────────────────────
-  // Session 27 addition: added realistic Indian MRP (Maximum Retail Price)
+  // Added realistic Indian MRP (Maximum Retail Price)
   // values, researched against real-world retail listings. For these FMCG
   // categories, mrp == basePrice — there's normally no gap between shelf
   // price and printed MRP for everyday packaged groceries/snacks/beverages.
   // Six products had unrealistic basePrice values corrected in this pass:
   // Tata Salt, Fortune Oil, Lay's Chips, Parle-G, Kurkure, Amul Butter,
   // Maggi (family pack), MTR Poha.
-  //
-  // Session 29 addition: added costPrice — what we pay the SUPPLIER per
+  
+
+  // Added costPrice — what we pay the SUPPLIER per
   // unit, separate from basePrice/mrp (what the CUSTOMER pays). Estimated
   // using realistic Indian FMCG margins (tighter for staples/dairy, wider
   // for snacks/beverages). Needed as a prerequisite for profit-based
@@ -373,7 +374,7 @@ async function main() {
   // ─── INVENTORY ─────────────────────────────────────────────────────────────
   // Schema fields: quantityOnHand, reorderLevel, reorderQty, currentPrice
   // Baseline numbers now live in src/data/baselineStock.ts (shared with the
-  // /simulator/reset/:storeId safety endpoint — see Session 27).
+    // /simulator/reset/:storeId safety endpoint).
   console.log("📊 Seeding inventory per store...");
 
   let inventoryCount = 0;

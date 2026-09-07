@@ -1,5 +1,5 @@
 /**
- * mlSuggestionLoop.ts — SurgeOps Session 14
+ * mlSuggestionLoop.ts — SurgeOps
  *
  * Scheduled loop that periodically re-runs the ML pricing suggestion batch
  * (generateMlPricingSuggestions) so the dashboard's ML comparison panel has

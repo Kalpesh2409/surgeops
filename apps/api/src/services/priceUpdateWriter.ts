@@ -49,7 +49,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
     const { name: productName, sku, basePrice, mrp } = existing.product;
 
     const delta = Math.abs(currentPrice - Number(existing.currentPrice));
-    // Session 27 fix: an MRP-capped price often lands exactly back at the
+    // Fix: an MRP-capped price often lands exactly back at the
     // same number it started at (common when mrp == basePrice), which used
     // to get silently skipped by this epsilon-skip shortcut — hiding the
     // "capped" badge from the live dashboard even though capping genuinely
@@ -101,7 +101,7 @@ export async function writePriceUpdates(updates: PriceUpdate[]): Promise<void> {
       },
     });
 
-    // Session 27+ (Gemini removed): explanation is now built instantly from
+    // Gemini removed: explanation is now built instantly from
     // the same numbers we're already writing — no external API call, no
     // cache lookup, no staleness to worry about. It is always guaranteed to
     // match the price and reason being written in this same update.

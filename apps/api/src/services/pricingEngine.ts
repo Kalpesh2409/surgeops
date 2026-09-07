@@ -1,5 +1,5 @@
 /**
- * pricingEngine.ts — SurgeOps Session 15
+  * pricingEngine.ts — SurgeOps
  *
  * Baseline demand price now comes from the trained ML model (latest
  * random_forest_v1 PricingSuggestion row). Live DemandEvents no longer
@@ -8,10 +8,10 @@
  * live-reactivity demo (Traffic Simulator / DDoS injects) while making the
  * ML model the source of truth for "expected" demand.
  *
- * Falls back to pure rules-based scoring (Session 5 behavior) if no ML
+* Falls back to pure rules-based scoring if no ML
  * suggestion exists yet for a given store+product.
  *
- * GUARDRAIL FIX (Session 15 follow-up): surgeMultiplierMax now caps only the
+ * GUARDRAIL FIX: surgeMultiplierMax now caps only the
  * LIVE SURGE ADJUSTMENT portion, not the ML baseline itself. Previously the
  * cap was applied to the combined (ML baseline × surge) multiplier, which
  * meant a high-confidence ML prediction could get silently clipped even with
@@ -21,7 +21,7 @@
  * floorPrice/ceilPrice still apply as the absolute final safety net on the
  * resulting price regardless of source.
  *
- * MRP CAP (Session 27): added a final, absolute, non-negotiable price ceiling
+ * MRP CAP: added a final, absolute, non-negotiable price ceiling
  * based on each product's real-world Indian MRP (Maximum Retail Price).
  * Unlike floorPrice/ceilPrice (business guardrails we set ourselves), MRP is
  * a legal constraint — the final price can NEVER exceed it, regardless of
@@ -75,7 +75,7 @@ const EVENT_WEIGHTS: Record<string, number> = {
 /**
  * Demand score → surge ADJUSTMENT FACTOR curve breakpoints.
  * At score 0 this returns 1.0 (i.e. no adjustment to the ML baseline).
- * This curve is unchanged from Session 5 — it's just reinterpreted now as
+ * This curve is unchanged — it's just reinterpreted now as
  * an adjustment on top of the ML baseline rather than a standalone multiplier.
  */
 const SURGE_THRESHOLDS = [
@@ -281,7 +281,7 @@ export async function computeSuggestedPrice(
 
   const confidence = computeConfidence(events.length, demandScore);
 
-  // ── MRP cap — the absolute, non-negotiable final check (Session 27) ─────────
+  // ── MRP cap — the absolute, non-negotiable final check ─────────
   // No matter what the ML baseline, live surge adjustment, or rule guardrails
   // decided, the final price can NEVER exceed the product's legal MRP. This
   // is the very last check, after everything else, on purpose. Note:

@@ -1,5 +1,5 @@
 /**
- * explanationBuilder.ts — Session 27+ replacement for the Gemini AI
+ * explanationBuilder.ts — replacement for the Gemini AI
  * explanation feature.
  *
  * Builds a short, human-readable sentence describing why a product's

@@ -80,7 +80,7 @@ router.post(
 );
 
 /**
- * recordSimulatedSale — Session 29 addition.
+ * recordSimulatedSale
  *
  * Writes one Order + one OrderItem row for a simulated sale, using the
  * SAME tables a future real customer-facing ordering app will write to.
@@ -135,7 +135,7 @@ async function recordSimulatedSale(
  * /demo-ramp (scripted multi-step spike sequence).
  *
  * Deducts stock proportional to the injected demand, records the
- * simulated sale as a real Order/OrderItem (Session 29), recomputes
+ * simulated sale as a real Order/OrderItem, recomputes
  * price via the pricing engine, and broadcasts stock + price updates
  * over SSE.
  * Does NOT create the DemandEvent row or invalidate cache — callers
@@ -559,7 +559,7 @@ router.post(
  * Redis cache keys. Lets a live demo be reset via one API call — no local
  * terminal, no DB password, ever.
  *
- * Session 29: does NOT touch Order/OrderItem — those are real sales
+ * Does NOT touch Order/OrderItem — those are real sales
  * history for analytics, not "live demo state" like DemandEvents/
  * PricingSuggestions are, so a reset never deletes them.
  *

@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 let loopTimer: ReturnType<typeof setInterval> | null = null;
 
-// Session 27 (restart-replay fix): this used to start at new Date(0) — the
+// Restart-replay fix: this used to start at new Date(0) — the
 // very beginning of time. That meant every time the API server restarted
 // (a manual restart locally, or a redeploy on Render), this cursor reset
 // to zero and the very first tick treated EVERY DemandEvent ever created
@@ -20,7 +20,7 @@ let highWaterMark: Date = new Date();
 const POLL_INTERVAL_MS = 15_000;
 
 /**
- * Session 27+ (Gemini removed): explanations are now built instantly with
+ * Gemini removed: explanations are now built instantly with
  * buildExplanation() wherever a price is computed — no external API call,
  * no per-tick rate limit, no "pending explanation" queue, no staleness
  * checks. This removed a large amount of complexity that used to live
@@ -67,12 +67,12 @@ async function tick(): Promise<void> {
         select: { productId: true },
       });
 
-      // Session 27 (MRP pass): capture cappedAtMrp per product from this same
+      // MRP pass: capture cappedAtMrp per product from this same
       // computeSuggestedPrice call, so we don't need to call it twice later
       // when building the aggregate cache below.
       const cappedAtMrpByProduct = new Map<string, boolean>();
 
-      // Session 27 (Bug 1 fix): also capture the TRUE surgeMultiplier from
+      // Bug 1 fix: also capture the TRUE surgeMultiplier from
       // the pricing engine here, per product. The storeAgg block below used
       // to recalculate surgeMultiplier as currentPrice / basePrice, which
       // always collapses to 1.00x whenever a price is MRP-capped (since a
@@ -133,7 +133,7 @@ async function tick(): Promise<void> {
         const mrp = inv.product.mrp;
         const currentPrice = Number(inv.currentPrice);
 
-        // Session 27 (Bug 1 fix): use the real surgeMultiplier captured
+        // Bug 1 fix: use the real surgeMultiplier captured
         // from the pricing engine above. Fall back to the old ratio
         // calculation only if this product somehow wasn't in the Map
         // (e.g. an inventory row with no matching computeSuggestedPrice
@@ -147,7 +147,7 @@ async function tick(): Promise<void> {
         const confidence = confidenceByProduct.get(inv.productId) ?? 0;
         const cappedAtMrp = cappedAtMrpByProduct.get(inv.productId) ?? false;
 
-        // Session 27+ (Gemini removed): explanation is built instantly,
+        // Gemini removed: explanation is built instantly,
         // directly from these same values — always accurate, never stale.
         const explanation = buildExplanation({
           productName: inv.product.name,
@@ -207,7 +207,7 @@ export function startDemandIngestionLoop(): void {
     return;
   }
 
-  // Session 27 (restart-replay fix): re-confirm the cursor starts at "now"
+  // Restart-replay fix: re-confirm the cursor starts at "now"
   // at the moment the loop actually starts, not just at module-load time —
   // covers the (unlikely but possible) case where the module was loaded
   // some time before the server actually starts listening.
