@@ -1,5 +1,6 @@
+/// <reference types="node" />
 /**
-* runMlPricingSuggestions.ts - SurgeOps
+ * runMlPricingSuggestions.ts - SurgeOps
  *
  * Runs the ML-based pricing suggestion pipeline once and prints a summary.
  * Usage: cd apps/api && npx ts-node scripts/runMlPricingSuggestions.ts
