@@ -14,7 +14,7 @@ import {
   computeLevelPercent,
 } from "../lib/inventoryStatus";
 import { stockMatrix } from "../data/baselineStock";
-import { requireAuth, requireAdmin } from "../middleware/authMiddleware";
+import { requireAuth, requireAdmin, blockDemoAccount } from "../middleware/authMiddleware";
 import rateLimit from "express-rate-limit";
 
 const router = Router();
@@ -62,6 +62,7 @@ router.post(
   "/start",
   requireAuth,
   requireAdmin,
+  blockDemoAccount,
   (_req: Request, res: Response) => {
     startSimulator();
     res.json({ message: "Simulator started", status: getSimulatorStatus() });
@@ -73,6 +74,7 @@ router.post(
   "/stop",
   requireAuth,
   requireAdmin,
+  blockDemoAccount,
   (_req: Request, res: Response) => {
     stopSimulator();
     res.json({ message: "Simulator stopped", status: getSimulatorStatus() });
@@ -266,6 +268,7 @@ router.post(
   "/inject",
   requireAuth,
   requireAdmin,
+  blockDemoAccount,
   injectLimiter,
   async (req: Request, res: Response) => {
     console.log("[Inject] req.body =", req.body);
@@ -382,6 +385,7 @@ router.post(
   "/demo-ramp",
   requireAuth,
   requireAdmin,
+  blockDemoAccount,
   injectLimiter,
   async (req: Request, res: Response) => {
     const { storeId, stageDelayMs = 8000 } = req.body as {
@@ -577,6 +581,7 @@ router.post(
   "/reset/:storeId",
   requireAuth,
   requireAdmin,
+  blockDemoAccount,
   resetLimiter,
   async (req: Request, res: Response) => {
     const { storeId } = req.params;
