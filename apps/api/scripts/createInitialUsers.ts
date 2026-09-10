@@ -91,7 +91,7 @@ async function main() {
     label: "Demo Account (public)",
     name: "Demo Account",
     email: "demotest@example.com",
-    role: "REGIONAL_MANAGER",
+    role: "ADMIN",
     isDemo: true,
     fixedPassword: "Demo1234!",
   });
