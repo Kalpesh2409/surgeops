@@ -17,6 +17,7 @@ interface StoredUser {
   email: string;
   role: string;
   storeId: string | null;
+  isDemo?: boolean;
 }
 
 export default function App() {
@@ -56,8 +57,11 @@ export default function App() {
     : null;
 
   // Traffic Simulator triggers real simulated orders — it's a testing
-  // tool, not something Store or Regional Managers need day-to-day.
-  const canUseSimulator = user?.role === "ADMIN";
+  // tool, not something Store or Regional Managers need day-to-day, and
+  // it's hidden from the public demo account regardless of role, to
+  // protect the live database and free-tier resources from repeated
+  // unsupervised use.
+  const canUseSimulator = user?.role === "ADMIN" && !user?.isDemo;
 
   // Same role → dashboard path mapping used by Login.tsx after sign-in,
   // so "Back to Dashboard" always lands on the correct page for this user.

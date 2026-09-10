@@ -69,6 +69,7 @@ router.post("/login", loginLimiter, async (req: Request, res: Response) => {
         email: user.email,
         role: user.role,
         storeId: user.storeId,
+        isDemo: user.isDemo,
       },
     });
   } catch (err) {
