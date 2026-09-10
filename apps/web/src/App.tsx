@@ -59,6 +59,15 @@ export default function App() {
   // tool, not something Store or Regional Managers need day-to-day.
   const canUseSimulator = user?.role === "ADMIN";
 
+  // Same role → dashboard path mapping used by Login.tsx after sign-in,
+  // so "Back to Dashboard" always lands on the correct page for this user.
+  const dashboardPath =
+    {
+      ADMIN: "/admin-dashboard",
+      STORE_MANAGER: "/store-dashboard",
+      REGIONAL_MANAGER: "/regional-dashboard",
+    }[user?.role ?? ""] || "/admin-dashboard";
+
   return (
     <div className="min-h-screen bg-background p-6 overflow-x-hidden">
       <div className="w-full space-y-6">
@@ -75,6 +84,12 @@ export default function App() {
               <p className="text-xs text-muted-foreground leading-tight">
                 Dark Store Pricing Engine
               </p>
+              <a
+                href={dashboardPath}
+                className="text-xs text-primary hover:underline"
+              >
+                ← Back to Dashboard
+              </a>
             </div>
           </div>
 
