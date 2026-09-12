@@ -13,7 +13,7 @@
 | URL | [surgeops-web.onrender.com](https://surgeops-web.onrender.com) → Staff Login |
 | Email | `demotest@example.com` |
 | Password | `Demo1234!` |
-| Role | Regional Manager (full read access across all stores; write actions are disabled on this account by design) |
+| Role | Admin (full dashboard access, including Sales Analytics and Manage Users — but user-management changes and the Traffic Simulator are disabled on this account by design) |
 
 ## Demo
 
@@ -139,7 +139,8 @@ This isn't a toy demo left wide open — a few real protections are in place:
 
 - **Rate limiting** on login attempts and on the Traffic Simulator's endpoints, to prevent abuse (exact thresholds intentionally not published here).
 - **Role-based access control** — three roles (Admin, Regional Manager, Store Manager), each seeing a different set of pages and data. Store Managers are locked to their own store's data, enforced on the server, not just hidden in the UI.
-- **Demo account write protection** — the public demo account can view everything but is blocked from creating, editing, deactivating, or deleting anything, enforced by a dedicated middleware layer.
+- **Demo account write protection** — the public demo account has full Admin-level visibility (Sales Analytics, Store Overview, Manage Users) but is blocked from creating, editing, deactivating, or deleting any user, enforced by a dedicated middleware layer that checks a database flag independent of the account's role.
+- **Traffic Simulator disabled for the demo account** — the simulator can inject real load into the live system, so it's hidden from and blocked for the public demo account specifically (both in the interface and directly at the API level), even though the account otherwise has Admin access.
 - **Authenticated real-time updates** — the live SSE price stream requires a valid token, even though browsers' native `EventSource` API can't send standard auth headers (worked around via a short-lived signed token in the URL).
 - **Soft-delete + confirmation for user removal** — accounts are deactivated before they can be permanently deleted, and permanent deletion requires re-typing the user's name to confirm.
 
